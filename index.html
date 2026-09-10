@@ -7,6 +7,7 @@
 <!-- 本地库: 双击 index.html 即可离线使用, 无需联网无需服务器 -->
 <script src="lib/xlsx.full.min.js"></script>
 <script src="lib/chart.umd.min.js"></script>
+<script src="lib/jszip.min.js"></script>
 <style>
   :root{
     --bg:#f4f6fb; --card:#ffffff; --ink:#1f2937; --sub:#6b7280;
@@ -78,9 +79,9 @@
   <div class="drop" id="drop">
     <div class="big">📁</div>
     <div class="t1">点击选择 / 拖拽微信账单文件到此处</div>
-    <div class="t2">支持: 微信支付账单流水文件 .xlsx / .csv(从微信“钱包-账单-下载账单”导出)</div>
+    <div class="t2">支持: 微信支付账单流水文件 .xlsx / .csv / .zip(压缩包会自动解压读取)· 从微信"钱包-账单-下载账单"导出</div>
   </div>
-  <input type="file" id="file" accept=".xlsx,.xls,.csv" style="display:none">
+  <input type="file" id="file" accept=".xlsx,.xls,.csv,.zip" style="display:none">
 
   <div style="text-align:center;margin:12px 0 4px">
     <button class="btn" id="btnDemo">🎬 没有账单?先用示例数据试用</button>
@@ -94,6 +95,7 @@
       <button class="btn" id="btnAll">整个区间</button>
       <button class="btn" id="btnMonth">本月</button>
       <span style="flex:1"></span>
+      <button class="btn" id="btnReport">🖼️ 生成分享长图</button>
       <button class="btn primary" id="btnExport">⬇ 导出明细CSV</button>
     </div>
 
@@ -105,6 +107,13 @@
           <div class="lb" style="font-size:12px;color:var(--sub);margin-bottom:4px">报销剔除关键词(逗号分隔, 命中则整笔不算消费)</div>
           <input type="text" id="reimburseInput" placeholder="例如: 摩天轮, 培训费"
                  style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:13px">
+        </div>
+        <div>
+          <div class="lb" style="font-size:12px;color:var(--sub);margin-bottom:4px">
+            🏪 商户固定分类(每行一条, 格式: <code>商户关键词 | 分类</code>) — 优先级最高, 用于"陈贤松"这类看不出用途的商户
+          </div>
+          <textarea id="merchantInput" rows="3" placeholder="例如: 陈贤松 | 餐饮&#10;吴凤琴 | 餐饮&#10;A刘 | 购物"
+                    style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:13px;font-family:inherit"></textarea>
         </div>
         <div>
           <div class="lb" style="font-size:12px;color:var(--sub);margin-bottom:4px">
@@ -161,6 +170,22 @@
   <footer>数据仅在本地处理 · 规则移植自 dsh/WeChatBill · 部署后可微信内直接使用 · <span id="verTag">版本读取中…</span></footer>
 </div>
 
+<!-- 分享长图预览弹窗 -->
+<div id="reportModal" style="display:none;position:fixed;inset:0;background:rgba(17,24,39,.72);z-index:99;overflow:auto;padding:16px">
+  <div style="max-width:760px;margin:0 auto;background:#fff;border-radius:14px;padding:14px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <b style="font-size:15px">🖼️ 消费报告长图</b>
+      <span style="font-size:12px;color:var(--sub)">手机可长按图片保存 · 发微信/朋友圈</span>
+      <span style="flex:1"></span>
+      <button class="btn primary" id="btnReportSave">⬇ 保存图片</button>
+      <button class="btn" id="btnReportClose">✕ 关闭</button>
+    </div>
+    <div style="text-align:center;background:#f7f9fc;border-radius:10px;padding:8px">
+      <img id="reportImg" alt="消费报告" style="max-width:100%;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,.08)">
+    </div>
+  </div>
+</div>
+
 <script>
 /* =========================================================
  *  微信账单分析助手 — 纯前端逻辑
@@ -168,12 +193,15 @@
  * ========================================================= */
 
 /* 版本号: 改动本文件后请同步修改, 页面底部会显示, 便于确认线上是不是最新版 */
-const APP_VERSION = '1.3';
+const APP_VERSION = '1.4';
 
 /* ---------------- 规则区(默认值; 页面上也可直接改, 会记在浏览器里) ---------------- */
 const DEFAULT_RULES = {
   // 报销剔除: 交易对方或商品含这些词 → 整笔不算消费
   reimburseKw: ['摩天轮'],
+  // 商户固定分类: 商户关键词 → 指定分类(优先级高于关键词自动分类)
+  // 例: {'陈贤松': '餐饮', '吴凤琴': '餐饮', 'A刘': '购物'}
+  merchantCat: {},
   // AA 结算组: name=名称; spendKw=垫付消费关键词; incomeKw=AA回款人关键词
   aaGroups: [
     { name: '09-01打球+廷梅饭局', spendKw: ['玉环奥体体育', '廷梅'], incomeKw: ['谢奕铭', '高晨轩', '好印象'] }
@@ -185,7 +213,15 @@ let RULES = JSON.parse(JSON.stringify(DEFAULT_RULES));   // 运行时规则(可�
 function loadRules(){
   try{
     const s = localStorage.getItem('wxbill_rules');
-    if (s){ const o = JSON.parse(s); if (o && Array.isArray(o.reimburseKw) && Array.isArray(o.aaGroups)) RULES = o; }
+    if (s){
+      const o = JSON.parse(s);
+      if (o && typeof o === 'object'){
+        RULES = Object.assign(JSON.parse(JSON.stringify(DEFAULT_RULES)), o);
+        if (!RULES.merchantCat || typeof RULES.merchantCat !== 'object') RULES.merchantCat = {};
+        if (!Array.isArray(RULES.reimburseKw)) RULES.reimburseKw = [];
+        if (!Array.isArray(RULES.aaGroups)) RULES.aaGroups = [];
+      }
+    }
   }catch(e){}
 }
 function saveRules(){
@@ -193,11 +229,20 @@ function saveRules(){
 }
 function rulesToInputs(){
   $('reimburseInput').value = RULES.reimburseKw.join(',');
+  $('merchantInput').value = Object.keys(RULES.merchantCat)
+    .map(k=> k + ' | ' + RULES.merchantCat[k]).join('\n');
   $('aaInput').value = RULES.aaGroups.map(g=>
     g.name + ' | ' + g.spendKw.join(',') + ' | ' + g.incomeKw.join(',')).join('\n');
 }
 function inputsToRules(){
   RULES.reimburseKw = $('reimburseInput').value.split(/[,，\s]+/).map(s=>s.trim()).filter(Boolean);
+  // 商户固定分类: 每行 "商户关键词 | 分类"
+  const mc = {};
+  $('merchantInput').value.split('\n').forEach(line=>{
+    const parts = line.split('|').map(s=>s.trim());
+    if (parts.length >= 2 && parts[0] && parts[1]) mc[parts[0]] = parts[1];
+  });
+  RULES.merchantCat = mc;
   const groups = [];
   $('aaInput').value.split('\n').forEach(line=>{
     const parts = line.split('|').map(s=>s.trim());
@@ -260,12 +305,12 @@ function refundOf(status){
 }
 
 /* ---------------- 解析微信账单文件 ---------------- */
-async function parseFile(file){
-  const buf = await file.arrayBuffer();
+/** 把账单二进制(xlsx 或 csv 文本)解析成明细行 */
+function parseBuffer(buf){
   const head = new Uint8Array(buf.slice(0,4));
-  const isZip = head[0]===0x50 && head[1]===0x4B;   // PK
+  const isPk = head[0]===0x50 && head[1]===0x4B;   // PK = zip 容器(xlsx 也是 zip)
   let rows;
-  if (isZip){                    // xlsx
+  if (isPk){                    // xlsx
     const wb = XLSX.read(buf, {type:'array'});
     const ws = wb.Sheets[wb.SheetNames[0]];
     rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:false, defval:''});
@@ -299,11 +344,44 @@ async function parseFile(file){
       type: String(r[iType]||''), peer: String(r[iPeer]||''),
       item: String(r[iItem]!=null?r[iItem]:''), status: String(r[iStatus]||''),
       note: String(iNote>=0&&r[iNote]!=null?r[iNote]:''),
-      amt: dir==='支出' ? toNum(r[iAmt]) : toNum(r[iAmt]),
+      amt: toNum(r[iAmt]),
       rawAmt: toNum(r[iAmt])
     });
   }
   return out;
+}
+
+/** 读取上传的文件: 先按账单直接解析; 若是 zip 压缩包则取出里面的 csv/xlsx 再解析 */
+async function parseFile(file){
+  const buf = await file.arrayBuffer();
+  // 1) 直接当账单解析(成功且有条数就直接用)
+  try {
+    const rows = parseBuffer(buf);
+    if (rows.length) return rows;
+  } catch(e){ /* 失败则继续尝试当 zip 处理 */ }
+
+  // 2) 当 zip 压缩包: 找里面的 csv/xlsx(微信邮箱导出的账单常是 zip)
+  if (typeof JSZip === 'undefined') throw new Error('无法解析该文件(缺少解压组件)');
+  let zip;
+  try {
+    zip = await JSZip.loadAsync(buf);
+  } catch(e){
+    const msg = String(e && e.message || e);
+    if (/encrypt|password|加密/i.test(msg))
+      throw new Error('这个 zip 是加密的(微信账单 zip 常带密码)。\n请先用解压软件输入邮件里的密码解压, 再上传里面的 csv/xlsx 文件。');
+    throw new Error('无法识别该文件: 既不是有效的账单, 也不是可读的 zip');
+  }
+  const names = Object.keys(zip.files).filter(n => !zip.files[n].dir && /\.(csv|xlsx|xls)$/i.test(n));
+  if (!names.length){
+    throw new Error('zip 里没找到 csv/xlsx 账单文件。\n(微信账单 zip 若加密, 请先解压再上传)');
+  }
+  // 多个文件时优先取体积最大的(通常就是账单明细)
+  names.sort((a,b)=> (zip.files[b]._data ? zip.files[b]._data.uncompressedSize : 0)
+                   - (zip.files[a]._data ? zip.files[a]._data.uncompressedSize : 0));
+  const inner = await zip.files[names[0]].async('arraybuffer');
+  const rows = parseBuffer(inner);
+  if (!rows.length) throw new Error('zip 内的账单文件解析为空, 请确认文件内容');
+  return rows;
 }
 
 /* ---------------- 分类 ---------------- */
@@ -319,11 +397,16 @@ function classifyRow(o){
   if (/转账|红包|群收款/.test(type) || TRANSFER_KW.some(k=>text.includes(k))) return {cat:'转账', spend:false, ref};
   // 4 报销剔除(规则)
   if (RULES.reimburseKw.some(k=>text.includes(k))) return {cat:'报销剔除', spend:false, ref, reimbursed:true};
-  // 5 消费关键词
+  // 5 商户固定分类(用户指定, 优先级高于自动关键词)
+  const mc = RULES.merchantCat || {};
+  for (const key of Object.keys(mc)){
+    if (key && o.peer.includes(key)) return {cat: mc[key], spend:true, ref, pinned:true};
+  }
+  // 6 消费关键词
   for (const [cat, kws] of Object.entries(CAT_KEYWORDS)){
     if (kws.some(k=>text.includes(k))) return {cat, spend:true, ref};
   }
-  // 6 扫码个人付款 → 生活消费
+  // 7 扫码个人付款 → 生活消费
   if (type.includes('扫二维码付款')) return {cat:'生活消费', spend:true, ref};
   return {cat:'日常消费', spend:true, ref};
 }
@@ -339,7 +422,7 @@ function analyze(){
     o.cat = c.cat; o.isSpend = c.spend;
     o.refund = c.ref===Infinity ? o.rawAmt : c.ref;
     o.net = (c.ref===Infinity) ? 0 : Math.max(o.rawAmt - c.ref, 0);
-    o.aaGroup = ''; o.reimbursed = !!c.reimbursed;
+    o.aaGroup = ''; o.reimbursed = !!c.reimbursed; o.pinned = !!c.pinned;
   });
   incomes.forEach(o=>{ o.refund=0; o.net=o.rawAmt; });
   // AA 结算: 给支出打组标
@@ -587,6 +670,119 @@ async function loadDemo(){
   await onFile({ arrayBuffer: async () => buf.buffer });
 }
 
+/* ---------------- 分享长图(纯 Canvas 绘制, 不依赖第三方库) ---------------- */
+function roundRect(c, x, y, w, h, r){
+  c.beginPath();
+  c.moveTo(x+r, y);
+  c.arcTo(x+w, y,   x+w, y+h, r);
+  c.arcTo(x+w, y+h, x,   y+h, r);
+  c.arcTo(x,   y+h, x,   y,   r);
+  c.arcTo(x,   y,   x+w, y,   r);
+  c.closePath();
+}
+
+/** 生成消费报告长图, 返回 dataURL */
+function buildReportImage(){
+  const spends = filteredSpends();
+  const st = compute(spends, computeAaFunds());
+  const cats = [];
+  Object.entries(st.catSum).sort((a,b)=>b[1]-a[1]).forEach(([k,v])=>cats.push({name:k, val:v}));
+  st.aaRows.forEach(x=>cats.push({name:'AA·'+x.name, val:x.net}));
+  const total = cats.reduce((s,x)=>s+x.val,0) || 1;
+
+  const W = 720, scale = 2;
+  const padX = 40;
+  const rowH = 34;
+  const catTop = 470;
+  const H = catTop + cats.length*rowH + 210;
+  const cv = document.createElement('canvas');
+  cv.width = W*scale; cv.height = H*scale;
+  const c = cv.getContext('2d');
+  c.scale(scale, scale);
+
+  // 背景
+  const bg = c.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0, '#eef4ff'); bg.addColorStop(1, '#f7f9fc');
+  c.fillStyle = bg; c.fillRect(0,0,W,H);
+
+  // 顶部标题条
+  const head = c.createLinearGradient(0,0,W,140);
+  head.addColorStop(0, '#4f7cff'); head.addColorStop(1, '#6ea8ff');
+  c.fillStyle = head; c.fillRect(0,0,W,150);
+  c.fillStyle = '#fff';
+  c.font = 'bold 34px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif';
+  c.fillText('微信账单消费报告', padX, 66);
+  const d0 = $('d0').value, d1 = $('d1').value;
+  c.font = '17px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif';
+  c.fillStyle = 'rgba(255,255,255,.9)';
+  c.fillText('统计区间: ' + (d0||'—') + '  至  ' + (d1||'—'), padX, 100);
+  c.font = '13px -apple-system,"PingFang SC","Microsoft YaHei",sans-serif';
+  c.fillStyle = 'rgba(255,255,255,.75)';
+  c.fillText('共 ' + spends.length + ' 笔支出记录', padX, 126);
+
+  // 主数字卡片: 真实消费
+  c.fillStyle = '#fff';
+  roundRect(c, padX, 180, W-padX*2, 120, 18); c.fill();
+  c.fillStyle = '#6b7280'; c.font = '16px -apple-system,"PingFang SC",sans-serif';
+  c.fillText('真实消费总额(已扣退款/报销/AA回款)', padX+24, 214);
+  c.fillStyle = '#1f2937';
+  c.font = 'bold 46px -apple-system,"PingFang SC",sans-serif';
+  c.fillText('¥ ' + fmtMoney(st.spendTotal), padX+24, 268);
+
+  // 四宫格小卡片
+  const items = [
+    ['支出原值', spends.reduce((s,o)=>s+o.rawAmt,0), '#4f7cff'],
+    ['退款', spends.reduce((s,o)=>s+o.refund,0), '#10b981'],
+    ['报销剔除', st.reimburseSum, '#ef4444'],
+    ['AA净自付', st.aaRows.reduce((s,x)=>s+x.net,0), '#8b5cf6']
+  ];
+  const cardW = (W-padX*2-3*12)/4;
+  items.forEach((it,i)=>{
+    const x = padX + i*(cardW+12);
+    c.fillStyle = '#fff'; roundRect(c, x, 318, cardW, 92, 14); c.fill();
+    c.fillStyle = it[2]; c.fillRect(x, 318, 4, 92);
+    c.fillStyle = '#6b7280'; c.font = '13px -apple-system,"PingFang SC",sans-serif';
+    c.fillText(it[0], x+14, 344);
+    c.fillStyle = '#1f2937'; c.font = 'bold 20px -apple-system,"PingFang SC",sans-serif';
+    c.fillText('¥'+fmtMoney(it[1]), x+14, 380);
+  });
+
+  // 分类明细
+  c.fillStyle = '#1f2937'; c.font = 'bold 20px -apple-system,"PingFang SC",sans-serif';
+  c.fillText('消费构成', padX, 448);
+  c.font = '14px -apple-system,"PingFang SC",sans-serif';
+  const barX = padX + 160, barMaxW = W - padX - barX - 130;
+  cats.forEach((cat,i)=>{
+    const y = catTop + i*rowH;
+    c.fillStyle = '#374151'; c.font = '15px -apple-system,"PingFang SC",sans-serif';
+    c.fillText(cat.name.length>9 ? cat.name.slice(0,9)+'…' : cat.name, padX, y+18);
+    // 底槽
+    c.fillStyle = '#e8edf6';
+    roundRect(c, barX, y+5, barMaxW, 15, 7.5); c.fill();
+    // 填充
+    const w = Math.max(barMaxW * (cat.val/total), 3);
+    c.fillStyle = PALETTE[i % PALETTE.length];
+    roundRect(c, barX, y+5, w, 15, 7.5); c.fill();
+    // 金额 + 占比
+    c.fillStyle = '#1f2937'; c.font = 'bold 14px -apple-system,"PingFang SC",sans-serif';
+    const right = '¥' + fmtMoney(cat.val);
+    c.fillText(right, W - padX - c.measureText(right).width, y+18);
+    c.fillStyle = '#9ca3af'; c.font = '12px -apple-system,"PingFang SC",sans-serif';
+    const pct = (cat.val/total*100).toFixed(1) + '%';
+    c.fillText(pct, W - padX - c.measureText(pct).width, y+32);
+  });
+
+  // 页脚
+  const fy = catTop + cats.length*rowH + 34;
+  c.fillStyle = '#9ca3af'; c.font = '13px -apple-system,"PingFang SC",sans-serif';
+  c.fillText('由「微信账单分析助手」生成 · 数据仅在本地解析, 未上传服务器 · v' + APP_VERSION, padX, fy);
+  c.fillStyle = '#c7d0e0'; c.font = '12px -apple-system,"PingFang SC",sans-serif';
+  c.fillText('生成时间: ' + new Date().toLocaleString('zh-CN'), padX, fy+22);
+
+  return cv.toDataURL('image/png');
+}
+
+
 /* ---------------- 事件 ---------------- */
 $('btnDemo').addEventListener('click', loadDemo);
 $('drop').addEventListener('click', ()=>$('file').click());
@@ -639,6 +835,25 @@ $('btnResetRules').addEventListener('click', ()=>{
 loadRules();
 rulesToInputs();
 $('verTag').textContent = 'v' + APP_VERSION;
+
+/* 分享长图: 生成 → 弹窗预览(手机可长按保存) → 可选下载 */
+let lastReportURL = '';
+$('btnReport').addEventListener('click', ()=>{
+  try{
+    lastReportURL = buildReportImage();
+    $('reportImg').src = lastReportURL;
+    $('reportModal').style.display = 'block';
+  }catch(e){ alert('生成图片失败: ' + (e && e.message || e)); }
+});
+$('btnReportClose').addEventListener('click', ()=>{ $('reportModal').style.display = 'none'; });
+$('reportModal').addEventListener('click', e=>{ if (e.target === $('reportModal')) $('reportModal').style.display='none'; });
+$('btnReportSave').addEventListener('click', ()=>{
+  if (!lastReportURL) return;
+  const a = document.createElement('a');
+  a.href = lastReportURL;
+  a.download = '微信账单消费报告.png';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+});
 $('btnExport').addEventListener('click', ()=>{
   const rows = filteredSpends().map(o=>({
     '时间': o.t.getFullYear()+'-'+String(o.t.getMonth()+1).padStart(2,'0')+'-'+String(o.t.getDate()).padStart(2,'0')+' '+String(o.t.getHours()).padStart(2,'0')+':'+String(o.t.getMinutes()).padStart(2,'0'),
@@ -654,21 +869,33 @@ $('btnExport').addEventListener('click', ()=>{
 });
 
 /* 自动化验收: 打开 index.html?demo=1 会自动跑示例数据, 并把结果写进网页标题,
-   便于用无头浏览器(或人工看标签页标题)确认前端逻辑在真实浏览器里正常。 */
+   便于用无头浏览器(或人工看标签页标题)确认前端逻辑在真实浏览器里正常。
+   附加参数: &zip=1 改为抓取 tests/fixtures/sample_bill.zip 测试 zip 直传。 */
 if (typeof location !== 'undefined' && /[?&]demo=1/.test(location.search)){
   const r2 = x => Math.round(x*100)/100;
-  loadDemo().then(()=>{
+  const useZip = /[?&]zip=1/.test(location.search);
+  const ready = useZip
+    ? fetch('tests/fixtures/sample_bill.zip').then(r=>r.arrayBuffer()).then(b=>onFile({arrayBuffer: async()=>b}))
+    : loadDemo();
+  ready.then(()=>{
     const spends = filteredSpends();
     const st = compute(spends, computeAaFunds());
     const cats = {};
     Object.keys(st.catSum).forEach(k=>{ cats[k] = r2(st.catSum[k]); });
+    let reportInfo = '';
+    try {
+      const url = buildReportImage();
+      reportInfo = url.startsWith('data:image/png') ? 'ok(' + url.length + 'B)' : 'bad';
+    } catch(e){ reportInfo = 'ERR:' + (e && e.message || e); }
     document.title = 'E2E v' + APP_VERSION + ' ' + JSON.stringify({
+      来源: useZip ? 'zip' : 'demo',
       真实消费: r2(st.spendTotal),
       退款: r2(spends.reduce((s,o)=>s+o.refund,0)),
       报销剔除: r2(st.reimburseSum),
       转账人情: r2(st.transfer),
       AA净自付: st.aaRows.map(x=>r2(x.net)),
-      分类: cats
+      分类: cats,
+      长图: reportInfo
     });
   }).catch(e=>{ document.title = 'E2E_ERR ' + (e && e.message || e); });
 }
