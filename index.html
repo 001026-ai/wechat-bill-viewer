@@ -158,7 +158,7 @@
     </div>
   </div>
 
-  <footer>数据仅在本地处理 · 规则移植自 dsh/WeChatBill · 部署后可微信内直接使用</footer>
+  <footer>数据仅在本地处理 · 规则移植自 dsh/WeChatBill · 部署后可微信内直接使用 · <span id="verTag">版本读取中…</span></footer>
 </div>
 
 <script>
@@ -166,6 +166,9 @@
  *  微信账单分析助手 — 纯前端逻辑
  *  分类规则与 D:\学习内容\wechatbill\test.py 保持一致
  * ========================================================= */
+
+/* 版本号: 改动本文件后请同步修改, 页面底部会显示, 便于确认线上是不是最新版 */
+const APP_VERSION = '1.3';
 
 /* ---------------- 规则区(默认值; 页面上也可直接改, 会记在浏览器里) ---------------- */
 const DEFAULT_RULES = {
@@ -635,6 +638,7 @@ $('btnResetRules').addEventListener('click', ()=>{
 });
 loadRules();
 rulesToInputs();
+$('verTag').textContent = 'v' + APP_VERSION;
 $('btnExport').addEventListener('click', ()=>{
   const rows = filteredSpends().map(o=>({
     '时间': o.t.getFullYear()+'-'+String(o.t.getMonth()+1).padStart(2,'0')+'-'+String(o.t.getDate()).padStart(2,'0')+' '+String(o.t.getHours()).padStart(2,'0')+':'+String(o.t.getMinutes()).padStart(2,'0'),
@@ -658,7 +662,7 @@ if (typeof location !== 'undefined' && /[?&]demo=1/.test(location.search)){
     const st = compute(spends, computeAaFunds());
     const cats = {};
     Object.keys(st.catSum).forEach(k=>{ cats[k] = r2(st.catSum[k]); });
-    document.title = 'E2E ' + JSON.stringify({
+    document.title = 'E2E v' + APP_VERSION + ' ' + JSON.stringify({
       真实消费: r2(st.spendTotal),
       退款: r2(spends.reduce((s,o)=>s+o.refund,0)),
       报销剔除: r2(st.reimburseSum),
