@@ -82,6 +82,10 @@
   </div>
   <input type="file" id="file" accept=".xlsx,.xls,.csv" style="display:none">
 
+  <div style="text-align:center;margin:12px 0 4px">
+    <button class="btn" id="btnDemo">🎬 没有账单?先用示例数据试用</button>
+  </div>
+
   <div id="result" style="display:none">
     <!-- 筛选工具栏 -->
     <div class="toolbar">
@@ -92,6 +96,31 @@
       <span style="flex:1"></span>
       <button class="btn primary" id="btnExport">⬇ 导出明细CSV</button>
     </div>
+
+    <!-- 规则设置(可折叠) -->
+    <details class="panel" id="rulePanel" style="margin-bottom:12px">
+      <summary style="cursor:pointer;font-size:14px;font-weight:600">⚙️ 规则设置(报销剔除 / AA 结算) — 点开可改</summary>
+      <div style="margin-top:12px;display:grid;gap:10px">
+        <div>
+          <div class="lb" style="font-size:12px;color:var(--sub);margin-bottom:4px">报销剔除关键词(逗号分隔, 命中则整笔不算消费)</div>
+          <input type="text" id="reimburseInput" placeholder="例如: 摩天轮, 培训费"
+                 style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:13px">
+        </div>
+        <div>
+          <div class="lb" style="font-size:12px;color:var(--sub);margin-bottom:4px">
+            AA 结算组(每行一组, 格式: <code>组名 | 垫付消费关键词 | 回款人关键词</code>, 关键词用逗号分隔)
+          </div>
+          <textarea id="aaInput" rows="3" placeholder="例如: 09-01打球+廷梅饭局 | 玉环奥体体育,廷梅 | 谢奕铭,高晨轩,好印象"
+                    style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:13px;font-family:inherit"></textarea>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button class="btn primary" id="btnSaveRules">保存并重算</button>
+          <button class="btn" id="btnResetRules">恢复默认</button>
+          <span id="ruleMsg" style="font-size:12px;color:var(--green)"></span>
+        </div>
+        <div class="rules-note">规则保存在本机浏览器里(不上传); 换电脑/手机需重新设置。AA 组含义: 您先垫付的消费, 减去朋友回款后 = 您的净自付。</div>
+      </div>
+    </details>
 
     <!-- 总览卡片 -->
     <div class="cards" id="cards"></div>
@@ -138,8 +167,8 @@
  *  分类规则与 D:\学习内容\wechatbill\test.py 保持一致
  * ========================================================= */
 
-/* ---------------- 规则区(如需调整, 改这里) ---------------- */
-const RULES = {
+/* ---------------- 规则区(默认值; 页面上也可直接改, 会记在浏览器里) ---------------- */
+const DEFAULT_RULES = {
   // 报销剔除: 交易对方或商品含这些词 → 整笔不算消费
   reimburseKw: ['摩天轮'],
   // AA 结算组: name=名称; spendKw=垫付消费关键词; incomeKw=AA回款人关键词
@@ -147,6 +176,36 @@ const RULES = {
     { name: '09-01打球+廷梅饭局', spendKw: ['玉环奥体体育', '廷梅'], incomeKw: ['谢奕铭', '高晨轩', '好印象'] }
   ]
 };
+let RULES = JSON.parse(JSON.stringify(DEFAULT_RULES));   // 运行时规则(可被页面修改)
+
+/* 规则的读写(存在浏览器 localStorage, 换账单也保留; 换设备则回到默认) */
+function loadRules(){
+  try{
+    const s = localStorage.getItem('wxbill_rules');
+    if (s){ const o = JSON.parse(s); if (o && Array.isArray(o.reimburseKw) && Array.isArray(o.aaGroups)) RULES = o; }
+  }catch(e){}
+}
+function saveRules(){
+  try{ localStorage.setItem('wxbill_rules', JSON.stringify(RULES)); }catch(e){}
+}
+function rulesToInputs(){
+  $('reimburseInput').value = RULES.reimburseKw.join(',');
+  $('aaInput').value = RULES.aaGroups.map(g=>
+    g.name + ' | ' + g.spendKw.join(',') + ' | ' + g.incomeKw.join(',')).join('\n');
+}
+function inputsToRules(){
+  RULES.reimburseKw = $('reimburseInput').value.split(/[,，\s]+/).map(s=>s.trim()).filter(Boolean);
+  const groups = [];
+  $('aaInput').value.split('\n').forEach(line=>{
+    const parts = line.split('|').map(s=>s.trim());
+    if (parts.length < 3 || !parts[0]) return;
+    const spendKw = parts[1].split(/[,，]+/).map(s=>s.trim()).filter(Boolean);
+    const incomeKw = parts[2].split(/[,，]+/).map(s=>s.trim()).filter(Boolean);
+    if (spendKw.length && incomeKw.length) groups.push({name:parts[0], spendKw, incomeKw});
+  });
+  RULES.aaGroups = groups;
+  saveRules();
+}
 
 /* 消费分类关键词(顺序即优先级) */
 const CAT_KEYWORDS = {
@@ -267,15 +326,10 @@ function classifyRow(o){
 }
 
 /* ---------------- 主流程 ---------------- */
-async function onFile(file){
-  let rows;
-  try { rows = await parseFile(file); }
-  catch(e){ alert('解析失败: '+e.message); return; }
-  allRows = rows;
-  const spends = rows.filter(r=>r.dir==='支出');
-  const incomes = rows.filter(r=>r.dir==='收入');
-  if (!spends.length){ alert('未找到支出记录'); return; }
-
+/** 对 allRows 重新分类打标(报销规则变化后可复用) */
+function analyze(){
+  const spends = allRows.filter(r=>r.dir==='支出');
+  const incomes = allRows.filter(r=>r.dir==='收入');
   // 逐笔分类 + 净额
   spends.forEach(o=>{
     const c = classifyRow(o);
@@ -285,26 +339,50 @@ async function onFile(file){
     o.aaGroup = ''; o.reimbursed = !!c.reimbursed;
   });
   incomes.forEach(o=>{ o.refund=0; o.net=o.rawAmt; });
-
-  // AA 结算: 给支出打组标, 记录回款
-  const aaFunds = {};   // groupName -> 回款合计
+  // AA 结算: 给支出打组标
   RULES.aaGroups.forEach(g=>{
     const gSpends = spends.filter(o=>g.spendKw.some(k=>(o.peer+o.item).includes(k)));
-    if (!gSpends.length) return;
     gSpends.forEach(o=>o.aaGroup = g.name);
-    const t0 = Math.min(...gSpends.map(o=>o.t.getTime()));
-    const funds = incomes.filter(inc=>g.incomeKw.some(k=>inc.peer.includes(k)) && inc.t.getTime()>=t0)
-                         .reduce((s,inc)=>s+inc.rawAmt, 0);
-    aaFunds[g.name] = { gross: gSpends.reduce((s,o)=>s+o.net,0), funds };
   });
+  return {spends, incomes};
+}
+
+/** 计算每个 AA 组的垫付合计与回款合计 */
+function computeAaFunds(){
+  const spends = allRows.filter(r=>r.dir==='支出');
+  const incomes = allRows.filter(r=>r.dir==='收入');
+  const aaFunds = {};
+  RULES.aaGroups.forEach(g=>{
+    const gs = spends.filter(o=>o.aaGroup===g.name);
+    if (!gs.length) return;
+    const t0 = Math.min(...gs.map(o=>o.t.getTime()));
+    aaFunds[g.name] = {
+      gross: gs.reduce((s,o)=>s+o.net, 0),
+      funds: incomes.filter(i=>g.incomeKw.some(k=>i.peer.includes(k)) && i.t.getTime()>=t0)
+                    .reduce((s,i)=>s+i.rawAmt, 0)
+    };
+  });
+  return aaFunds;
+}
+
+async function onFile(file){
+  let rows;
+  try { rows = await parseFile(file); }
+  catch(e){ alert('解析失败: '+e.message); return; }
+  allRows = rows;
+  const {spends} = analyze();
+  if (!spends.length){ alert('未找到支出记录'); return; }
 
   // 日期默认取整个区间
   const ts = spends.map(o=>o.t.getTime());
   $('d0').value = toDateStr(new Date(Math.min(...ts)));
   $('d1').value = toDateStr(new Date(Math.max(...ts)));
+  // 重置筛选(换新账单时清掉上一份的分类选项与筛选状态)
+  $('viewFilter').value = 'all';
+  $('catFilter').innerHTML = '<option value="all">全部分类</option>';
   $('result').style.display = 'block';
   $('file').value = '';
-  render(aaFunds);
+  render(computeAaFunds());
 }
 
 function toDateStr(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -466,7 +544,48 @@ function renderDetail(spends){
     }).join('');
 }
 
+/* ---------------- 示例数据(点"试用示例数据"时使用, 不联网) ---------------- */
+const DEMO_CSV = [
+'微信支付账单明细',
+'微信昵称：[示例用户]',
+'起始时间：[2026-09-01 00:00:00] 终止时间：[2026-09-06 23:59:59]',
+'导出类型：[全部账单]',
+'导出时间：[2026-09-06 23:59:59]',
+'',
+'共9笔记录',
+'收入：3笔 269.00元',
+'支出：9笔 600.00元',
+'注：',
+'1. 充值/提现/理财通购买/零钱通存取/信用卡还款等交易，将计入中性交易',
+'2. 若交易记录明细无有效内容，则代表该时间段内此微信号无交易',
+'3. 本明细仅供个人对账使用',
+'4. 本账单中所有时间均为UTC+08:00时间',
+'',
+'----------------------微信支付账单明细列表--------------------',
+'交易时间,交易类型,交易对方,商品,收/支,金额(元),支付方式,当前状态,交易单号,商户单号,备注',
+'2026-09-01 20:09:00,商户消费,玉环廷梅餐饮店,玉环廷梅餐饮店消费,支出,¥248.00,零钱,支付成功,D001,M001,/',
+'2026-09-01 12:59:00,商户消费,玉环奥体体育发展有限公司,预订场地-体育馆-羽毛球-微信,支出,¥105.00,零钱,支付成功,D002,M002,/',
+'2026-09-01 21:11:00,转账,谢奕铭 (示例),转账备注:微信转账,收入,¥88.00,/,已转入零钱通,D003,/,/',
+'2026-09-01 21:15:00,转账,高晨轩 (示例),转账备注:微信转账,收入,¥90.00,/,已转入零钱通,D004,/,/',
+'2026-09-01 21:21:00,转账,好印象 (示例),转账备注:微信转账,收入,¥91.00,/,已转入零钱通,D005,/,/',
+'2026-09-02 12:00:00,商户消费,蜜雪冰城,蜜雪冰城61900002店,支出,¥10.00,零钱通,支付成功,D006,M006,/',
+'2026-09-03 20:12:00,商户消费,美团,国大药房（汇鑫店）-美团App,支出,¥27.40,零钱通,支付成功,D007,M007,/',
+'2026-09-04 19:03:00,商户消费,天津城建大学充值,一卡通充值,支出,¥100.00,零钱通,支付成功,D008,M008,/',
+'2026-09-05 18:35:00,商户消费,高德打车,高德打车订单,支出,¥10.49,零钱,已退款(¥0.49),D009,M009,/',
+'2026-09-05 19:43:00,商户消费,天津城投集团资产管理有限公司,天津之眼摩天轮,支出,¥372.00,零钱通,支付成功,D010,M010,/',
+'2026-09-06 11:24:00,商户消费,美团,先骑后付,支出,¥1.50,零钱通,支付成功,D011,M011,/',
+'2026-09-06 19:58:00,微信红包（单发）,发给周盈盈 (示例),/,支出,¥6.66,零钱通,支付成功,D012,M012,/',
+'2026-09-06 19:31:00,商户消费,郑州集英教育科技有限公司,校付通缴费,支出,¥69.90,零钱通,已全额退款,D013,M013,/'
+].join('\n');
+
+/** 用内置示例数据跑一遍完整流程(与真实上传走同一条代码路径) */
+async function loadDemo(){
+  const buf = new TextEncoder().encode(DEMO_CSV);
+  await onFile({ arrayBuffer: async () => buf.buffer });
+}
+
 /* ---------------- 事件 ---------------- */
+$('btnDemo').addEventListener('click', loadDemo);
 $('drop').addEventListener('click', ()=>$('file').click());
 $('drop').addEventListener('dragover', e=>{e.preventDefault(); $('drop').classList.add('over');});
 $('drop').addEventListener('dragleave', ()=>$('drop').classList.remove('over'));
@@ -483,23 +602,39 @@ $('btnMonth').addEventListener('click', ()=>{
   $('d1').value=toDateStr(now); renderAll();
 });
 function renderAll(){
-  // 重新计算AA基金(时间范围可能变化, 简化为用全量spends重算)
-  const spendsAll = allRows.filter(r=>r.dir==='支出');
-  const incomes = allRows.filter(r=>r.dir==='收入');
-  const aaFunds = {};
-  RULES.aaGroups.forEach(g=>{
-    const gs = spendsAll.filter(o=>o.aaGroup===g.name);
-    if(!gs.length) return;
-    const t0 = Math.min(...gs.map(o=>o.t.getTime()));
-    aaFunds[g.name] = { gross: gs.reduce((s,o)=>s+o.net,0),
-      funds: incomes.filter(i=>g.incomeKw.some(k=>i.peer.includes(k))&&i.t.getTime()>=t0).reduce((s,i)=>s+i.rawAmt,0) };
-  });
-  render(aaFunds);
+  render(computeAaFunds());
 }
 $('d0').addEventListener('change', renderAll);
 $('d1').addEventListener('change', renderAll);
 $('viewFilter').addEventListener('change', ()=>renderDetail(filteredSpends()));
 $('catFilter').addEventListener('change', ()=>renderDetail(filteredSpends()));
+
+/* 规则编辑: 保存并重算 / 恢复默认 */
+$('btnSaveRules').addEventListener('click', ()=>{
+  inputsToRules();
+  const {spends} = analyze();               // 用新规则重新分类
+  if (spends.length){
+    $('viewFilter').value = 'all';
+    $('catFilter').innerHTML = '<option value="all">全部分类</option>';
+    renderAll();
+  }
+  $('ruleMsg').textContent = '✅ 已保存并重算';
+  setTimeout(()=>{ $('ruleMsg').textContent = ''; }, 2500);
+});
+$('btnResetRules').addEventListener('click', ()=>{
+  RULES = JSON.parse(JSON.stringify(DEFAULT_RULES));
+  saveRules(); rulesToInputs();
+  const {spends} = analyze();
+  if (spends.length){
+    $('viewFilter').value = 'all';
+    $('catFilter').innerHTML = '<option value="all">全部分类</option>';
+    renderAll();
+  }
+  $('ruleMsg').textContent = '↩️ 已恢复默认规则';
+  setTimeout(()=>{ $('ruleMsg').textContent = ''; }, 2500);
+});
+loadRules();
+rulesToInputs();
 $('btnExport').addEventListener('click', ()=>{
   const rows = filteredSpends().map(o=>({
     '时间': o.t.getFullYear()+'-'+String(o.t.getMonth()+1).padStart(2,'0')+'-'+String(o.t.getDate()).padStart(2,'0')+' '+String(o.t.getHours()).padStart(2,'0')+':'+String(o.t.getMinutes()).padStart(2,'0'),
@@ -513,6 +648,26 @@ $('btnExport').addEventListener('click', ()=>{
   XLSX.utils.book_append_sheet(wb, ws, '明细');
   XLSX.writeFile(wb, '微信账单_分析明细.xlsx');
 });
+
+/* 自动化验收: 打开 index.html?demo=1 会自动跑示例数据, 并把结果写进网页标题,
+   便于用无头浏览器(或人工看标签页标题)确认前端逻辑在真实浏览器里正常。 */
+if (typeof location !== 'undefined' && /[?&]demo=1/.test(location.search)){
+  const r2 = x => Math.round(x*100)/100;
+  loadDemo().then(()=>{
+    const spends = filteredSpends();
+    const st = compute(spends, computeAaFunds());
+    const cats = {};
+    Object.keys(st.catSum).forEach(k=>{ cats[k] = r2(st.catSum[k]); });
+    document.title = 'E2E ' + JSON.stringify({
+      真实消费: r2(st.spendTotal),
+      退款: r2(spends.reduce((s,o)=>s+o.refund,0)),
+      报销剔除: r2(st.reimburseSum),
+      转账人情: r2(st.transfer),
+      AA净自付: st.aaRows.map(x=>r2(x.net)),
+      分类: cats
+    });
+  }).catch(e=>{ document.title = 'E2E_ERR ' + (e && e.message || e); });
+}
 </script>
 </body>
 </html>
