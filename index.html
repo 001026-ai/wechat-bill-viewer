@@ -286,9 +286,219 @@
     .grid2{grid-template-columns:1fr}.panel .chartbox{height:240px}
     .hero{padding:56px 0 40px}.block{padding:44px 0}
   }
+
+  /* ===================================================================
+     v3 质感升级 — 极光渐变背景 + 颗粒质感 + 磨砂玻璃
+     =================================================================== */
+  :root{
+    /* 玻璃表面(浅色): 半透明白 + 亮边框 */
+    --glass-bg:rgba(255,255,255,.55);
+    --glass-strong:rgba(255,255,255,.72);
+    --glass-card:rgba(255,255,255,.58);
+    --glass-border:rgba(255,255,255,.75);
+    --glass-shadow:0 8px 32px rgba(31,38,135,.10);
+    --glass-inset:0 1px 0 rgba(255,255,255,.85) inset;
+    --on-glass:#1d1d1f;
+    --aurora-a:#8ec5ff; --aurora-b:#c9b6ff; --aurora-c:#9be7e0; --aurora-d:#ffd6e8;
+    --aurora-base:#f4f6fb;
+    --aurora-alpha:.55;
+    --grain-opacity:.30;
+    --grain-blend:multiply;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --glass-bg:rgba(255,255,255,.08);
+      --glass-strong:rgba(255,255,255,.14);
+      --glass-card:rgba(28,28,34,.52);
+      --glass-border:rgba(255,255,255,.14);
+      --glass-shadow:0 10px 40px rgba(0,0,0,.55);
+      --glass-inset:0 1px 0 rgba(255,255,255,.10) inset;
+      --on-glass:#f5f5f7;
+      --aurora-a:#3b6cff; --aurora-b:#8b5cf6; --aurora-c:#12b5c9; --aurora-d:#e0479e;
+      --aurora-base:#05060b;
+      --aurora-alpha:.75;
+      --grain-opacity:.22;
+      --grain-blend:overlay;
+    }
+  }
+  /* 背景层: 极光光晕 */
+  .aurora{position:fixed;inset:0;z-index:-2;overflow:hidden;background:var(--aurora-base)}
+  .aurora i{position:absolute;display:block;border-radius:50%;filter:blur(70px);opacity:var(--aurora-alpha);will-change:transform}
+  .aurora i:nth-child(1){width:62vw;height:62vw;left:-12vw;top:-18vw;background:radial-gradient(circle at 40% 40%, var(--aurora-a), transparent 68%);animation:drift1 34s ease-in-out infinite}
+  .aurora i:nth-child(2){width:56vw;height:56vw;right:-14vw;top:-6vw;background:radial-gradient(circle at 60% 40%, var(--aurora-b), transparent 66%);animation:drift2 42s ease-in-out infinite}
+  .aurora i:nth-child(3){width:60vw;height:60vw;left:8vw;bottom:-26vw;background:radial-gradient(circle at 50% 50%, var(--aurora-c), transparent 68%);animation:drift3 38s ease-in-out infinite}
+  .aurora i:nth-child(4){width:44vw;height:44vw;right:-6vw;bottom:-18vw;background:radial-gradient(circle at 50% 50%, var(--aurora-d), transparent 66%);animation:drift1 46s ease-in-out infinite reverse}
+  @keyframes drift1{0%,100%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(4vw,3vw,0) scale(1.12)}}
+  @keyframes drift2{0%,100%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(-5vw,4vw,0) scale(1.08)}}
+  @keyframes drift3{0%,100%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(3vw,-4vw,0) scale(1.15)}}
+  @media (prefers-reduced-motion: reduce){.aurora i{animation:none}}
+  /* 颗粒质感层(SVG 噪声, 无外部图片) */
+  .grain{
+    position:fixed;inset:0;z-index:-1;pointer-events:none;
+    opacity:var(--grain-opacity);mix-blend-mode:var(--grain-blend);
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size:220px 220px;
+  }
+  /* 背景之上的内容需要透明底, 让极光透出来 */
+  body{background:transparent}
+  .block.alt{background:transparent}
+  .site-footer{background:transparent}
+  .hero{background:transparent}
+
+  /* 磨砂玻璃: 通用表面 */
+  .panel,.card,.advice,.notes-card,.drop,details.acc{
+    background:var(--glass-card);
+    backdrop-filter:blur(18px) saturate(150%);
+    -webkit-backdrop-filter:blur(18px) saturate(150%);
+    border:1px solid var(--glass-border);
+    box-shadow:var(--glass-shadow), var(--glass-inset);
+  }
+  .drop{background:var(--glass-bg)}
+  .site-nav{
+    background:color-mix(in srgb, var(--aurora-base) 55%, transparent);
+    backdrop-filter:saturate(180%) blur(22px); -webkit-backdrop-filter:saturate(180%) blur(22px);
+    border-bottom:1px solid var(--glass-border);
+  }
+
+  /* 磨砂玻璃按钮 + 光泽扫过动效 */
+  .btn{
+    position:relative; overflow:hidden; isolation:isolate;
+    background:var(--glass-bg);
+    backdrop-filter:blur(14px) saturate(160%); -webkit-backdrop-filter:blur(14px) saturate(160%);
+    border:1px solid var(--glass-border);
+    box-shadow:var(--glass-inset), 0 4px 16px rgba(0,0,0,.08);
+    transition:transform .22s cubic-bezier(.2,.7,.3,1), box-shadow .25s, background .25s;
+  }
+  .btn::after{
+    content:''; position:absolute; inset:0; z-index:-1; border-radius:inherit;
+    background:linear-gradient(105deg, transparent 25%, rgba(255,255,255,.55) 45%, transparent 62%);
+    transform:translateX(-130%); transition:transform .75s cubic-bezier(.2,.7,.3,1);
+  }
+  .btn:hover{transform:translateY(-2px); box-shadow:var(--glass-inset), 0 10px 26px rgba(0,0,0,.14); background:var(--glass-strong)}
+  .btn:hover::after{transform:translateX(130%)}
+  .btn:active{transform:translateY(0) scale(.97)}
+  .btn.primary{
+    background:linear-gradient(160deg, rgba(0,113,227,.92), rgba(41,151,255,.82));
+    color:#fff; border-color:rgba(255,255,255,.42);
+    box-shadow:0 6px 22px rgba(0,113,227,.32), 0 1px 0 rgba(255,255,255,.35) inset;
+  }
+  .btn.primary:hover{background:linear-gradient(160deg, rgba(0,124,237,.98), rgba(64,168,255,.9)); box-shadow:0 12px 30px rgba(0,113,227,.42), 0 1px 0 rgba(255,255,255,.4) inset}
+  .chip{background:var(--glass-bg); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border-color:var(--glass-border)}
+  .chip:hover{background:var(--glass-strong); transform:translateY(-1px)}
+  .filters select,.toolbar input[type=date]{
+    background:var(--glass-bg); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    border-color:var(--glass-border); color:var(--on-glass);
+  }
+  th{background:transparent}
+  .tabwrap{border-radius:var(--r-md)}
+  /* 输入控件也玻璃化(规则设置区) */
+  #rulePanel input[type=text], #rulePanel textarea{
+    background:var(--glass-bg)!important; color:var(--on-glass)!important;
+    border-color:var(--glass-border)!important;
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+  }
+  textarea.notes{background:var(--glass-bg); color:var(--on-glass); border-color:var(--glass-border)}
+  /* 文字在彩色背景上的可读性: 给正文卡片一点底色保护 */
+  .section-head p,.lede{text-shadow:0 1px 2px color-mix(in srgb, var(--aurora-base) 60%, transparent)}
+
+  /* ---------- 规则设置: 分区卡片 ---------- */
+  .rule-summary{cursor:pointer;display:flex;align-items:center;gap:12px;font-size:17px;font-weight:650;letter-spacing:-.01em;list-style:none}
+  .rule-summary::-webkit-details-marker{display:none}
+  .rule-summary::after{content:'＋';margin-left:auto;color:var(--sub);font-weight:400}
+  #rulePanel[open] .rule-summary::after{content:'－'}
+  .rule-sum{font-size:12.5px;font-weight:500;color:var(--sub);background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:980px;padding:3px 12px}
+  .rule-intro{margin:14px 0 18px;font-size:13.5px;line-height:1.75;color:var(--sub)}
+  .rule-intro b{color:var(--ink)}
+  .rule-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:820px){.rule-grid{grid-template-columns:1fr}}
+  .rule-card{
+    background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:var(--r-md);
+    padding:16px;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  }
+  .rule-head{display:flex;gap:11px;align-items:flex-start;margin-bottom:10px}
+  .rule-ico{font-size:20px;line-height:1.2}
+  .rule-head b{display:block;font-size:15px;font-weight:650;letter-spacing:-.01em}
+  .rule-head span{display:block;font-size:12.5px;color:var(--sub);margin-top:2px}
+  .rule-hint{font-size:12.5px;color:var(--sub);line-height:1.65;margin-bottom:9px}
+  .rule-card input[type=text],.rule-card textarea{
+    width:100%;border:1px solid var(--glass-border);border-radius:10px;padding:10px 12px;
+    font-size:13.5px;font-family:inherit;background:var(--glass-strong);color:var(--on-glass);
+  }
+  .rule-card textarea{resize:vertical;line-height:1.6}
+  .rule-card input:focus,.rule-card textarea:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(0,113,227,.16)}
+  .rule-preview{
+    margin-top:10px;font-size:12.5px;line-height:1.6;color:var(--sub);
+    background:rgba(127,127,127,.08);border-radius:9px;padding:9px 11px;min-height:36px;
+  }
+  .rule-preview.ok{color:#0b8a5f;background:rgba(52,199,89,.12)}
+  .rule-preview.warn{color:#8a6100;background:rgba(255,159,10,.14)}
+  .rule-preview.bad{color:#b3261e;background:rgba(255,59,48,.12)}
+  @media (prefers-color-scheme: dark){
+    .rule-preview.ok{color:#5ee0a0}.rule-preview.warn{color:#ffd60a}.rule-preview.bad{color:#ff8a80}
+  }
+  .rule-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:18px}
+  .rule-store{font-size:12px;color:var(--sub);margin-left:auto}
+
+  /* ---------- 财务健康分 ---------- */
+  .score-wrap{display:grid;grid-template-columns:auto 1fr;gap:26px;align-items:center}
+  @media(max-width:760px){.score-wrap{grid-template-columns:1fr;gap:16px;text-align:center}}
+  .score-ring{position:relative;width:172px;height:172px;margin:0 auto}
+  .score-ring svg{transform:rotate(-90deg)}
+  .score-ring .val{
+    position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-size:44px;font-weight:700;letter-spacing:-.03em;line-height:1;
+  }
+  .score-ring .val small{font-size:12.5px;font-weight:500;color:var(--sub);letter-spacing:0;margin-top:6px}
+  .score-list{display:grid;gap:9px}
+  .score-item{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;line-height:1.6}
+  .score-item .dot{flex:0 0 auto;width:8px;height:8px;border-radius:50%;margin-top:7px;background:var(--amber)}
+  .score-item.minus .dot{background:var(--red)}
+  .score-item.plus .dot{background:var(--green)}
+
+  /* ---------- 预算目标环 ---------- */
+  .budget-grid{display:grid;grid-template-columns:auto 1fr;gap:26px;align-items:center}
+  @media(max-width:760px){.budget-grid{grid-template-columns:1fr;text-align:center}}
+  .budget-ring{position:relative;width:168px;height:168px;margin:0 auto}
+  .budget-ring svg{transform:rotate(-90deg)}
+  .budget-ring .val{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:21px;font-weight:700;letter-spacing:-.02em}
+  .budget-ring .val small{font-size:12px;font-weight:500;color:var(--sub);margin-top:4px}
+  .budget-form{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13.5px;color:var(--sub)}
+  .budget-form input{width:130px;border:1px solid var(--glass-border);border-radius:10px;padding:9px 12px;background:var(--glass-strong);color:var(--on-glass);font-family:inherit;font-size:13.5px}
+  .budget-tips{margin-top:14px;display:grid;gap:8px;font-size:13.5px;line-height:1.65}
+  .budget-tip{padding:10px 12px;border-radius:10px;background:rgba(127,127,127,.08)}
+  .budget-tip b{color:var(--ink)}
+
+  /* ---------- 问答式建议(小管家对话) ---------- */
+  .chat{display:grid;gap:14px}
+  .bubble{max-width:86%;padding:12px 15px;border-radius:16px;font-size:14px;line-height:1.7}
+  .bubble.me{margin-left:auto;background:linear-gradient(160deg, rgba(0,113,227,.92), rgba(41,151,255,.85));color:#fff;border-bottom-right-radius:5px}
+  .bubble.bot{background:var(--glass-strong);border:1px solid var(--glass-border);border-bottom-left-radius:5px;color:var(--on-glass)}
+  .bubble.bot b{font-weight:650}
+  .bubble .hi{color:var(--brand);font-weight:650}
+  .chat-asks{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+  @media (prefers-color-scheme: dark){.bubble .hi{color:var(--brand2)}}
+
+  /* ---------- 数字滚动 & 卡片光晕微交互 ---------- */
+  .card,.advice,.panel{position:relative}
+  .spot{position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity .35s;
+    background:radial-gradient(320px circle at var(--mx,50%) var(--my,50%), rgba(255,255,255,.42), transparent 62%)}
+  @media (prefers-color-scheme: dark){.spot{background:radial-gradient(320px circle at var(--mx,50%) var(--my,50%), rgba(255,255,255,.13), transparent 62%)}}
+  .card:hover .spot,.advice:hover .spot{opacity:1}
+  .pop{animation:pop .5s cubic-bezier(.2,.7,.3,1)}
+  @keyframes pop{0%{transform:scale(.96);opacity:.4}100%{transform:scale(1);opacity:1}}
+
+  /* 关闭动效(无障碍 / 截图验收用): index.html?noanim=1 */
+  .no-anim *, .no-anim *::before, .no-anim *::after{
+    animation:none!important; transition:none!important;
+  }
+  .no-anim .reveal{opacity:1!important; transform:none!important}
 </style>
 </head>
 <body>
+
+<!-- 质感背景: 极光光晕 + 颗粒(纯 CSS/SVG, 无外部图片, 不增加请求) -->
+<div class="aurora" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+<div class="grain" aria-hidden="true"></div>
 
 <!-- ===================== 顶部导航 ===================== -->
 <nav class="site-nav">
@@ -299,6 +509,7 @@
     </a>
     <div class="nav-links">
       <a href="#analyze">账单分析</a>
+      <a href="#butler">小管家</a>
       <a href="#advice">消费建议</a>
       <a href="#notes">消费笔记</a>
       <a href="#about">关于</a>
@@ -352,47 +563,70 @@
         <button class="btn primary" id="btnExport">⬇ 导出明细</button>
       </div>
 
-    <!-- 规则设置(可折叠) -->
-    <details class="panel" id="rulePanel" style="margin-bottom:12px">
-      <summary style="cursor:pointer;font-size:14px;font-weight:600">⚙️ 规则设置(报销剔除 / AA 结算) — 点开可改</summary>
-      <div style="margin-top:12px;display:grid;gap:10px">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div>
-            <div class="lb" style="font-size:12px;color:var(--sub);margin-bottom:4px">网站名称(显示在导航与页脚)</div>
-            <input type="text" id="siteNameInput" placeholder="账单小管家"
-                   style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:13px;background:var(--card);color:var(--ink)">
+    <!-- 规则设置: 分区卡片 + 实时预览 -->
+    <details class="panel" id="rulePanel" style="margin-bottom:16px">
+      <summary class="rule-summary">
+        <span>⚙️ 规则设置</span>
+        <span class="rule-sum" id="ruleSummaryHint">—</span>
+      </summary>
+
+      <div class="rule-intro">
+        这里的每一条规则都会立刻影响统计结果。改完点右下角 <b>保存并生效</b> 即可;
+        每张卡片下方会**实时**告诉你这条规则命中了账单里的哪几笔。
+      </div>
+
+      <div class="rule-grid">
+        <!-- 1. 报销剔除 -->
+        <div class="rule-card">
+          <div class="rule-head">
+            <span class="rule-ico">🧾</span>
+            <div><b>报销剔除</b><span>这些支出会被整笔剔除,不算你的消费</span></div>
           </div>
-          <div>
-            <div class="lb" style="font-size:12px;color:var(--sub);margin-bottom:4px">联系邮箱(显示在页脚)</div>
-            <input type="text" id="siteMailInput" placeholder="hello@example.com"
-                   style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:13px;background:var(--card);color:var(--ink)">
+          <div class="rule-hint">怎么填:关键词用逗号分隔。例如公司报销的门票,填 <code>摩天轮</code></div>
+          <input type="text" id="reimburseInput" placeholder="摩天轮, 培训费, 团建">
+          <div class="rule-preview" id="pvReimburse">—</div>
+        </div>
+
+        <!-- 2. 商户固定分类 -->
+        <div class="rule-card">
+          <div class="rule-head">
+            <span class="rule-ico">🏪</span>
+            <div><b>商户固定分类</b><span>优先级最高,专治"看不出用途"的商户</span></div>
           </div>
+          <div class="rule-hint">怎么填:每行一条,<code>商户关键词 | 分类</code>。左边是账单里出现的名字,右边写你想归的类别</div>
+          <textarea id="merchantInput" rows="3" placeholder="陈贤松 | 餐饮&#10;吴凤琴 | 餐饮&#10;A刘 | 购物"></textarea>
+          <div class="rule-preview" id="pvMerchant">—</div>
         </div>
-        <div>
-          <div class="lb" style="font-size:12px;color:var(--sub);margin-bottom:4px">报销剔除关键词(逗号分隔, 命中则整笔不算消费)</div>
-          <input type="text" id="reimburseInput" placeholder="例如: 摩天轮, 培训费"
-                 style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:13px;background:var(--card);color:var(--ink)">
-        </div>
-        <div>
-          <div class="lb" style="font-size:12px;color:var(--sub);margin-bottom:4px">
-            🏪 商户固定分类(每行一条, 格式: <code>商户关键词 | 分类</code>) — 优先级最高, 用于"陈贤松"这类看不出用途的商户
+
+        <!-- 3. AA 结算 -->
+        <div class="rule-card">
+          <div class="rule-head">
+            <span class="rule-ico">🤝</span>
+            <div><b>AA 结算组</b><span>你先垫付、朋友后来还你的钱</span></div>
           </div>
-          <textarea id="merchantInput" rows="3" placeholder="例如: 陈贤松 | 餐饮&#10;吴凤琴 | 餐饮&#10;A刘 | 购物"
-                    style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:13px;font-family:inherit"></textarea>
+          <div class="rule-hint">怎么填:每行一组,<code>组名 | 我垫付的消费关键词 | 回款人关键词</code>。结果 = 垫付合计 − 回款合计</div>
+          <textarea id="aaInput" rows="3" placeholder="09-01打球+廷梅饭局 | 玉环奥体体育,廷梅 | 谢奕铭,高晨轩,好印象"></textarea>
+          <div class="rule-preview" id="pvAA">—</div>
         </div>
-        <div>
-          <div class="lb" style="font-size:12px;color:var(--sub);margin-bottom:4px">
-            AA 结算组(每行一组, 格式: <code>组名 | 垫付消费关键词 | 回款人关键词</code>, 关键词用逗号分隔)
+
+        <!-- 4. 站点信息 -->
+        <div class="rule-card">
+          <div class="rule-head">
+            <span class="rule-ico">🏷️</span>
+            <div><b>站点信息</b><span>发布给别人看时的名称与联系方式</span></div>
           </div>
-          <textarea id="aaInput" rows="3" placeholder="例如: 09-01打球+廷梅饭局 | 玉环奥体体育,廷梅 | 谢奕铭,高晨轩,好印象"
-                    style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:13px;font-family:inherit"></textarea>
+          <div class="rule-hint">网站名称会显示在导航、页脚与分享标题里</div>
+          <input type="text" id="siteNameInput" placeholder="账单小管家">
+          <input type="text" id="siteMailInput" placeholder="hello@example.com" style="margin-top:8px">
+          <div class="rule-preview" id="pvSite">—</div>
         </div>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <button class="btn primary" id="btnSaveRules">保存并重算</button>
-          <button class="btn" id="btnResetRules">恢复默认</button>
-          <span id="ruleMsg" style="font-size:12px;color:var(--green)"></span>
-        </div>
-        <div class="rules-note">规则保存在本机浏览器里(不上传); 换电脑/手机需重新设置。AA 组含义: 您先垫付的消费, 减去朋友回款后 = 您的净自付。</div>
+      </div>
+
+      <div class="rule-actions">
+        <button class="btn primary" id="btnSaveRules">保存并生效</button>
+        <button class="btn" id="btnResetRules">恢复默认</button>
+        <span id="ruleMsg" style="font-size:13px;color:var(--green)"></span>
+        <span class="rule-store">💾 规则存在本机浏览器,不上传</span>
       </div>
     </details>
 
@@ -431,6 +665,74 @@
       <div class="tabwrap"><table id="detailTable"></table></div>
     </div>
     </div><!-- /result -->
+  </div>
+</section>
+
+<!-- ===================== 小管家(健康分 / 预算 / 问答) ===================== -->
+<section class="block alt" id="butler">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <h2>你的小管家</h2>
+      <p>它读完你的账单,会给一个财务健康分、帮你盯住预算,还能回答你随口问的问题。</p>
+    </div>
+    <div class="grid2">
+      <div class="panel reveal">
+        <h3>🎯 财务健康分</h3>
+        <div class="score-wrap">
+          <div class="score-ring">
+            <svg width="172" height="172" viewBox="0 0 172 172">
+              <defs>
+                <linearGradient id="scoreGrad" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stop-color="#34c759"/><stop offset="1" stop-color="#0071e3"/>
+                </linearGradient>
+              </defs>
+              <circle cx="86" cy="86" r="74" fill="none" stroke="rgba(127,127,127,.18)" stroke-width="12"/>
+              <circle id="scoreArc" cx="86" cy="86" r="74" fill="none" stroke="url(#scoreGrad)"
+                      stroke-width="12" stroke-linecap="round"
+                      stroke-dasharray="465" stroke-dashoffset="465"
+                      style="transition:stroke-dashoffset 1s cubic-bezier(.2,.7,.3,1)"/>
+            </svg>
+            <div class="val"><span id="scoreVal">—</span><small id="scoreGrade">等待账单</small></div>
+          </div>
+          <div class="score-list" id="scoreList">
+            <div class="score-item"><span class="dot"></span><span>上传账单后,这里会显示你的得分构成与扣分项。</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel reveal">
+        <h3>📊 预算进度</h3>
+        <div class="budget-grid">
+          <div class="budget-ring">
+            <svg width="168" height="168" viewBox="0 0 168 168">
+              <circle cx="84" cy="84" r="72" fill="none" stroke="rgba(127,127,127,.18)" stroke-width="13"/>
+              <circle id="budgetArc" cx="84" cy="84" r="72" fill="none" stroke="#0071e3"
+                      stroke-width="13" stroke-linecap="round"
+                      stroke-dasharray="452" stroke-dashoffset="452"
+                      style="transition:stroke-dashoffset .9s cubic-bezier(.2,.7,.3,1),stroke .4s"/>
+            </svg>
+            <div class="val"><span id="budgetPct">—</span><small id="budgetSub">未设置预算</small></div>
+          </div>
+          <div>
+            <div class="budget-form">
+              <span>每月预算</span>
+              <input type="number" id="budgetInput" min="0" step="100" placeholder="例如 2500">
+              <span>元</span>
+              <button class="btn" id="btnBudgetSave">保存</button>
+            </div>
+            <div class="budget-tips" id="budgetTips">
+              <div class="budget-tip">设一个预算,小管家会实时告诉你花了多少、还剩多少、按当前速度会不会超。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel full reveal">
+        <h3>💬 问问小管家</h3>
+        <div class="chat" id="chatBox"></div>
+        <div class="chat-asks" id="chatAsks"></div>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -578,7 +880,7 @@
  * ========================================================= */
 
 /* 版本号: 改动本文件后请同步修改, 页面底部会显示, 便于确认线上是不是最新版 */
-const APP_VERSION = '2.0';
+const APP_VERSION = '3.0';
 
 /* ---------------- 规则区(默认值; 页面上也可直接改, 会记在浏览器里) ---------------- */
 const DEFAULT_RULES = {
@@ -859,6 +1161,8 @@ async function onFile(file){
   $('catFilter').innerHTML = '<option value="all">全部分类</option>';
   $('result').style.display = 'block';
   $('file').value = '';
+  renderChat();           // 换账单后重置对话
+  previewRules();         // 规则预览按新账单刷新
   render(computeAaFunds());
 }
 
@@ -954,6 +1258,9 @@ function render(aaFunds){
   // 明细表 + 下拉分类选项
   renderDetail(spends);
   buildAdvice();          // 同步刷新消费建议(与当前筛选区间一致)
+  renderScore(true);      // 财务健康分
+  renderBudget(true);     // 预算进度环
+  enableSpotlight();      // 卡片光晕微交互
 }
 
 function drawPie(data){
@@ -1389,6 +1696,329 @@ function applyChartTheme(){
   Chart.defaults.font.family = '-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif';
 }
 
+/* =========================================================
+ *  财务健康分
+ * ========================================================= */
+function computeHealthScore(){
+  const spends = filteredSpends();
+  const st = compute(spends, computeAaFunds());
+  const total = st.spendTotal;
+  const items = [];
+  if (!spends.length || total <= 0) return { score:null, grade:'等待账单', items:[], total:0 };
+  let score = 100;
+  const share = k => (st.catSum[k] || 0) / total;
+  const money = n => '¥' + fmtMoney(n);
+
+  // 小额高频
+  const small = spends.filter(o=>o.isSpend && o.net>0 && o.net<=20);
+  const smallSum = small.reduce((s,o)=>s+o.net,0);
+  const smallShare = smallSum/total;
+  if (smallShare > .30){ score -= 12; items.push({t:'minus', s:`小额高频支出占 ${(smallShare*100).toFixed(0)}%,偏高`}); }
+  else if (smallShare < .15){ score += 0; items.push({t:'plus', s:`小额高频支出仅占 ${(smallShare*100).toFixed(0)}%,控制得不错`}); }
+  // 餐饮
+  if (share('餐饮') > .35){ score -= 10; items.push({t:'minus', s:`餐饮占 ${(share('餐饮')*100).toFixed(0)}%,超过三分之一`}); }
+  // 购物
+  if (share('购物') > .30){ score -= 10; items.push({t:'minus', s:`购物占 ${(share('购物')*100).toFixed(0)}%,建议区分"需要"与"想要"`}); }
+  // 娱乐
+  if (share('娱乐运动') > .20){ score -= 6; items.push({t:'minus', s:`娱乐运动占 ${(share('娱乐运动')*100).toFixed(0)}%,注意频率`}); }
+  // 大额集中
+  const spendOnly = spends.filter(o=>o.isSpend && !o.aaGroup && o.net>0).sort((a,b)=>b.net-a.net);
+  if (spendOnly.length && spendOnly[0].net/total > .30){
+    score -= 8; items.push({t:'minus', s:`单笔最大支出占 ${(spendOnly[0].net/total*100).toFixed(0)}%,集中度偏高`});
+  }
+  // 退款频率
+  const refundCnt = spends.filter(o=>o.refund>0).length;
+  if (refundCnt >= 3){ score -= 6; items.push({t:'minus', s:`本期有 ${refundCnt} 笔退款,注意下单前想清楚`}); }
+  else if (refundCnt === 0){ items.push({t:'plus', s:'本期没有退款,决策比较稳'}); }
+
+  // 加分项: AA 算得清楚
+  if (st.aaRows.length){ score += 4; items.push({t:'plus', s:`有 ${st.aaRows.length} 组 AA 结算,人情与消费分得清`}); }
+  // 加分项: 设了预算且没超
+  const budget = getBudget();
+  if (budget > 0){
+    if (total <= budget){ score += 8; items.push({t:'plus', s:`在预算内(已用 ${(total/budget*100).toFixed(0)}%),继续保持`}); }
+    else { score -= 15; items.push({t:'minus', s:`已超出预算 ${money(total-budget)},下期需要收一收`}); }
+  } else {
+    items.push({t:'', s:'还没设置月度预算 —— 设一个,分数会更有参考意义'});
+  }
+  // 加分项: 写了消费笔记
+  try{
+    const n = (localStorage.getItem(NOTE_KEY) || '').trim();
+    if (n.length >= 20){ score += 4; items.push({t:'plus', s:'写了消费笔记,复盘习惯加分'}); }
+    else items.push({t:'', s:'写几句消费笔记,能让分数和习惯都变好'});
+  }catch(e){}
+
+  score = Math.max(0, Math.min(100, score));
+  const grade = score >= 90 ? '优秀 · 理财习惯很稳' : score >= 75 ? '良好 · 还有优化空间'
+              : score >= 60 ? '及格 · 有几处要盯一盯' : '需要关注 · 建议从一两处开始改';
+  return { score, grade, items, total };
+}
+
+function renderScore(animate){
+  const r = computeHealthScore();
+  const arc = $('scoreArc'), val = $('scoreVal'), gr = $('scoreGrade'), list = $('scoreList');
+  if (!arc) return;
+  const C = 465;
+  if (r.score === null){
+    arc.style.strokeDashoffset = C; val.textContent = '—'; gr.textContent = '等待账单';
+    if (list) list.innerHTML = '<div class="score-item"><span class="dot"></span><span>上传账单后,这里会显示你的得分构成与扣分项。</span></div>';
+    return;
+  }
+  arc.style.strokeDashoffset = C * (1 - r.score/100);
+  gr.textContent = r.grade;
+  if (animate) countUp(val, r.score);
+  else val.textContent = r.score;
+  if (list){
+    list.innerHTML = r.items.map(it=>`<div class="score-item ${it.t}"><span class="dot"></span><span>${it.s}</span></div>`).join('');
+  }
+}
+
+/* =========================================================
+ *  预算进度环
+ * ========================================================= */
+const BUDGET_KEY = 'wxbill_budget';
+function getBudget(){ try{ return parseFloat(localStorage.getItem(BUDGET_KEY)) || 0; }catch(e){ return 0; } }
+function setBudget(v){ try{ localStorage.setItem(BUDGET_KEY, String(v)); }catch(e){} }
+
+function renderBudget(animate){
+  const arc = $('budgetArc'); if (!arc) return;
+  const C = 452;
+  const budget = getBudget();
+  const inp = $('budgetInput'); if (inp && document.activeElement !== inp) inp.value = budget > 0 ? budget : '';
+  const spends = filteredSpends();
+  const st = compute(spends, computeAaFunds());
+  const used = st.spendTotal;
+  const pctEl = $('budgetPct'), subEl = $('budgetSub'), tips = $('budgetTips');
+
+  if (budget <= 0){
+    arc.style.strokeDashoffset = C; arc.style.stroke = 'rgba(127,127,127,.35)';
+    pctEl.textContent = '—'; subEl.textContent = '未设置预算';
+    if (tips) tips.innerHTML = '<div class="budget-tip">设一个预算,小管家会实时告诉你花了多少、还剩多少、按当前速度会不会超。</div>';
+    return;
+  }
+  const ratio = Math.min(used / budget, 1);
+  arc.style.strokeDashoffset = C * (1 - ratio);
+  const pct = used / budget * 100;
+  arc.style.stroke = pct < 70 ? '#34c759' : pct <= 100 ? '#ff9f0a' : '#ff3b30';
+  if (animate) countUp(pctEl, Math.round(pct), '%'); else pctEl.textContent = Math.round(pct) + '%';
+  subEl.textContent = '已用 ¥' + fmtMoney(used) + ' / ¥' + fmtMoney(budget);
+
+  if (tips){
+    const left = budget - used;
+    const ts = [];
+    if (left >= 0) ts.push(`还剩 <b>¥${fmtMoney(left)}</b>,可以放心用。`);
+    else ts.push(`已超出 <b>¥${fmtMoney(-left)}</b>,下期记得往回收。`);
+    // 按天推算
+    const days = new Set(spends.map(o=>toDateStr(o.t))).size || 1;
+    const perDay = used / days;
+    ts.push(`按本期 ${days} 天算,日均 <b>¥${fmtMoney(perDay)}</b>${left>=0 ? `,照这个速度大约还能撑 <b>${Math.floor(left/perDay)}</b> 天` : ''}。`);
+    const save20 = Math.round(used * 0.2);
+    ts.push(`把它当参考:若每月先存 20%(约 <b>¥${fmtMoney(save20)}</b>),预算会更从容。`);
+    tips.innerHTML = ts.map(t=>`<div class="budget-tip">${t}</div>`).join('');
+  }
+}
+
+/* =========================================================
+ *  问问小管家(本地规则问答, 不联网)
+ * ========================================================= */
+const ASKS = [
+  '我哪类花得最多?',
+  '最大的三笔是什么?',
+  '外卖和奶茶花了多少?',
+  '怎么才能每月省下 500?',
+  '我的预算还够用吗?',
+  '这个月有什么要提醒我的?'
+];
+function chatSay(html, who){
+  const box = $('chatBox'); if (!box) return;
+  const d = document.createElement('div');
+  d.className = 'bubble ' + (who === 'me' ? 'me' : 'bot');
+  d.innerHTML = html;
+  if (box.appendChild) box.appendChild(d);
+  if (typeof d.scrollIntoView === 'function') d.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+function answerQuestion(q){
+  const spends = filteredSpends();
+  const st = compute(spends, computeAaFunds());
+  const total = st.spendTotal;
+  if (!spends.length || total <= 0) return '还没读到账单哦 —— 先在上面上传一份(或点"先看示例效果"),我才有数据可以聊。';
+  const money = n => '¥' + fmtMoney(n);
+  const cats = Object.entries(st.catSum).sort((a,b)=>b[1]-a[1]);
+  const spendOnly = spends.filter(o=>o.isSpend && !o.aaGroup && o.net>0).sort((a,b)=>b.net-a.net);
+
+  if (q.includes('哪类') || q.includes('花得最多')){
+    const [k,v] = cats[0] || ['—',0];
+    const second = cats[1] ? `;其次是 <span class="hi">${cats[1][0]} ${money(cats[1][1])}</span>` : '';
+    return `花得最多的是 <span class="hi">${k}</span>,共 ${money(v)},占你真实消费的 <b>${(v/total*100).toFixed(1)}%</b>${second}。`;
+  }
+  if (q.includes('最大') || q.includes('三笔')){
+    const top = spendOnly.slice(0,3);
+    if (!top.length) return '暂时没有可统计的单笔消费。';
+    return '最大的三笔是:<br>' + top.map((o,i)=>`${i+1}. <b>${money(o.net)}</b> · ${o.peer||'—'}${o.item && o.item!=='/' ? '('+o.item.slice(0,14)+')' : ''} · ${o.t.getMonth()+1}/${o.t.getDate()}`).join('<br>');
+  }
+  if (q.includes('外卖') || q.includes('奶茶')){
+    const kw = ['外卖','美团','饿了么','奶茶','蜜雪','古茗','咖啡','luckin','coffee','茶','酸奶'];
+    const hits = spends.filter(o=>o.isSpend && o.net>0 && kw.some(k=>(o.peer+o.item).includes(k)));
+    const sum = hits.reduce((s,o)=>s+o.net,0);
+    if (!hits.length) return '这类小额消费我一笔都没找到,挺克制的。';
+    const perCup = 15;
+    return `外卖/饮品这类共 <b>${hits.length}</b> 笔,合计 <span class="hi">${money(sum)}</span>,占 ${(sum/total*100).toFixed(1)}%。<br>
+      按一杯 ${perCup} 元估算,差不多相当于 <b>${Math.round(sum/perCup)}</b> 杯 —— 一个月少喝 1/3,能省下约 <b>${money(sum/3)}</b>。`;
+  }
+  if (q.includes('省') || q.includes('500')){
+    const small = spends.filter(o=>o.isSpend && o.net>0 && o.net<=20).reduce((s,o)=>s+o.net,0);
+    const food = st.catSum['餐饮']||0, shop = st.catSum['购物']||0, ent = st.catSum['娱乐运动']||0;
+    const plan = [];
+    if (small > 0) plan.push(`小额高频(${money(small)})砍掉三成 → 省 <b>${money(small*0.3)}</b>`);
+    if (food > 0) plan.push(`餐饮(${money(food)})少两成 → 省 <b>${money(food*0.2)}</b>`);
+    if (shop > 0) plan.push(`购物(${money(shop)})把想要的延后 72 小时,砍两成 → 省 <b>${money(shop*0.2)}</b>`);
+    if (ent > 0) plan.push(`娱乐(${money(ent)})减一成 → 省 <b>${money(ent*0.1)}</b>`);
+    const cap = small*0.3 + food*0.2 + shop*0.2 + ent*0.1;
+    return `按你的账单一共可以这么凑:<br>${plan.join('<br>')}<br>
+      三项合计大约 <span class="hi">${money(cap)}</span>/期${cap>=500 ? ',凑够 500 没问题' : ',离 500 还差一点 —— 可以从大额那几笔再挑一笔延后'}。<br>
+      省下来的第一件事:先转走,别留在活期里等着被花掉。`;
+  }
+  if (q.includes('预算')){
+    const budget = getBudget();
+    if (budget <= 0) return '你还没设置月度预算。在「预算进度」里填一个数字,我就能帮你盯着了。';
+    const left = budget - total;
+    return left >= 0
+      ? `预算 ${money(budget)},已用 <span class="hi">${money(total)}</span>(${(total/budget*100).toFixed(0)}%),还剩 <b>${money(left)}</b>。节奏正常。`
+      : `预算 ${money(budget)},已经超了 <span class="hi">${money(-left)}</span>。建议先把非必要的那几笔停一停。`;
+  }
+  if (q.includes('提醒') || q.includes('要提醒')){
+    const r = computeHealthScore();
+    const minus = r.items.filter(i=>i.t==='minus');
+    if (!minus.length) return `总体挺稳的,健康分 <b>${r.score}</b>。${
+      (r.items.find(i=>i.t==='')||{}).s || '保持现在的节奏就好。'}`;
+    return `健康分 <b>${r.score}</b>,我最想提醒你这两点:<br>` + minus.slice(0,2).map(i=>'· '+i.s).join('<br>');
+  }
+  return '这个问题我还在学。你可以试试上面那几个按钮 —— 我现在最擅长回答:哪类花得最多、最大的几笔、外卖饮品、怎么省下 500、预算够不够。';
+}
+function renderChat(){
+  const box = $('chatBox'), asks = $('chatAsks');
+  if (!box || !asks) return;
+  box.innerHTML = '';
+  chatSay(`你好,我是你的${SITE.name}。上传账单后,可以直接问我问题 —— 也可以点下面的按钮试试。`);
+  asks.innerHTML = ASKS.map(q=>`<button class="chip" data-q="${q}">${q}</button>`).join('');
+}
+
+/* =========================================================
+ *  规则实时预览
+ * ========================================================= */
+function previewRules(){
+  const spends = allRows.filter(r=>r.dir==='支出' && r.isSpend !== false);
+  const money = n => '¥' + fmtMoney(n);
+  const setPv = (id, cls, html) => { const el = $(id); if (el){ el.className = 'rule-preview ' + cls; el.innerHTML = html; } };
+
+  // 报销
+  try{
+    const kws = ($('reimburseInput').value||'').split(/[,，\s]+/).map(s=>s.trim()).filter(Boolean);
+    const hits = spends.filter(o=>kws.some(k=>(o.peer||'').includes(k) || (o.item||'').includes(k)));
+    const sum = hits.reduce((s,o)=>s+o.rawAmt,0);
+    if (!kws.length) setPv('pvReimburse','', '还没有关键词 —— 填写后会在这里显示命中情况。');
+    else if (!hits.length) setPv('pvReimburse','warn', `⚠️ 当前账单里没有匹配 <b>${kws.join('、')}</b> 的交易,确认一下写法?`);
+    else setPv('pvReimburse','ok', `✅ 命中 <b>${hits.length}</b> 笔,共 <b>${money(sum)}</b> 将从消费中剔除:<br>` +
+      hits.slice(0,3).map(o=>`· ${o.peer||'—'} ${money(o.rawAmt)}`).join('<br>') + (hits.length>3?`<br>· …等 ${hits.length} 笔`:''));
+  }catch(e){}
+
+  // 商户固定分类
+  try{
+    const lines = ($('merchantInput').value||'').split('\n').map(s=>s.trim()).filter(Boolean);
+    const bad = lines.filter(l=>l.split('|').filter(x=>x.trim()).length < 2);
+    const maps = lines.map(l=>l.split('|').map(x=>x.trim())).filter(p=>p.length>=2 && p[0] && p[1]);
+    if (!lines.length) setPv('pvMerchant','', '还没有规则 —— 每行写一条"商户 | 分类"。');
+    else if (bad.length) setPv('pvMerchant','bad', `❌ 有 ${bad.length} 行格式不对(缺少 <code>|</code> 分类),已忽略:<br>· ${bad.slice(0,3).join('<br>· ')}`);
+    else {
+      const info = maps.map(([k,c])=>{
+        const hits = spends.filter(o=>(o.peer||'').includes(k));
+        return hits.length ? `· <b>${k}</b> → ${c}:命中 ${hits.length} 笔,共 ${money(hits.reduce((s,o)=>s+o.rawAmt,0))}`
+                           : `· <b>${k}</b> → ${c}:当前账单未命中`;
+      });
+      const anyHit = maps.some(([k])=>spends.some(o=>(o.peer||'').includes(k)));
+      setPv('pvMerchant', maps.length && anyHit ? 'ok' : 'warn', info.join('<br>'));
+    }
+  }catch(e){}
+
+  // AA
+  try{
+    const lines = ($('aaInput').value||'').split('\n').map(s=>s.trim()).filter(Boolean);
+    if (!lines.length) setPv('pvAA','', '还没有 AA 组 —— 每行写"组名 | 垫付关键词 | 回款人"。');
+    else {
+      const out = [];
+      let ok = false;
+      lines.forEach(l=>{
+        const p = l.split('|').map(x=>x.trim());
+        if (p.length < 3 || !p[0]){ out.push(`❌ <b>${p[0]||'(未命名)'}</b>:格式不完整(需要 3 段)`); return; }
+        const sk = p[1].split(/[,，]+/).map(s=>s.trim()).filter(Boolean);
+        const ik = p[2].split(/[,，]+/).map(s=>s.trim()).filter(Boolean);
+        const gspend = spends.filter(o=>sk.some(k=>(o.peer+o.item).includes(k)));
+        const inc = allRows.filter(r=>r.dir==='收入' && ik.some(k=>(r.peer||'').includes(k)));
+        const gross = gspend.reduce((s,o)=>s+o.net,0);
+        const funds = inc.reduce((s,o)=>s+o.rawAmt,0);
+        if (gspend.length) ok = true;
+        out.push(`· <b>${p[0]}</b>:垫付 ${gspend.length} 笔 ${money(gross)} − 回款 ${inc.length} 笔 ${money(funds)} = 净自付 <b>${money(Math.max(gross-funds,0))}</b>`);
+      });
+      setPv('pvAA', ok ? 'ok' : 'warn', out.join('<br>'));
+    }
+  }catch(e){}
+
+  // 站点信息
+  try{
+    const nm = ($('siteNameInput').value||'').trim() || DEFAULT_SITE.name;
+    const ml = ($('siteMailInput').value||'').trim() || DEFAULT_SITE.mail;
+    const mailOk = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(ml);
+    setPv('pvSite', mailOk ? 'ok' : 'warn',
+      `导航与页脚将显示:<b>${nm}</b> · 联系方式:<b>${ml}</b>${mailOk?'':'<br>⚠️ 这个邮箱格式看起来不太对'}`);
+  }catch(e){}
+
+  // 摘要
+  try{
+    const rk = ($('reimburseInput').value||'').split(/[,，\s]+/).filter(Boolean).length;
+    const mk = ($('merchantInput').value||'').split('\n').filter(s=>s.trim()).length;
+    const ak = ($('aaInput').value||'').split('\n').filter(s=>s.trim()).length;
+    const el = $('ruleSummaryHint');
+    if (el) el.textContent = `报销 ${rk} · 商户 ${mk} · AA ${ak}`;
+  }catch(e){}
+}
+
+/* =========================================================
+ *  微交互: 数字滚动 / 卡片光晕
+ * ========================================================= */
+function countUp(el, target, suffix){
+  if (!el) return;
+  const final = Math.round(target) + (suffix || '');
+  // 无动画环境(老浏览器/无头环境)直接落值
+  if (typeof requestAnimationFrame === 'undefined' || typeof performance === 'undefined'){
+    el.textContent = final; return;
+  }
+  const dur = 900, t0 = performance.now();
+  (function step(now){
+    const p = Math.min((now - t0) / dur, 1);
+    const eased = 1 - Math.pow(1 - p, 3);
+    el.textContent = Math.round((target) * eased) + (suffix || '');
+    if (p < 1) requestAnimationFrame(step);
+  })(t0);
+  // 兜底: 若 rAF 被节流/暂停(后台标签页等), 到点直接给最终值
+  setTimeout(()=>{ el.textContent = final; }, dur + 80);
+}
+function enableSpotlight(root){
+  const nodes = (root || document).querySelectorAll ? (root || document).querySelectorAll('.card,.advice,.panel') : [];
+  for (let i=0;i<nodes.length;i++){
+    const el = nodes[i];
+    if (el.__spot) continue;
+    el.__spot = true;
+    if (!el.querySelector('.spot')){
+      const s = document.createElement('span'); s.className = 'spot'; el.appendChild(s);
+    }
+    el.addEventListener('mousemove', e=>{
+      const r = el.getBoundingClientRect();
+      el.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+      el.style.setProperty('--my', (e.clientY - r.top) + 'px');
+    });
+  }
+}
+
 /* ---------------- 事件 ---------------- */
 /* 首屏按钮 */
 $('btnHeroPick').addEventListener('click', ()=>$('file').click());
@@ -1495,6 +2125,30 @@ if (typeof IntersectionObserver !== 'undefined'){
 } else {
   document.querySelectorAll('.reveal').forEach(el=>el.classList.add('in'));
 }
+/* ---------- v3: 预算 / 问答 / 规则实时预览 ---------- */
+$('btnBudgetSave').addEventListener('click', ()=>{
+  const v = parseFloat($('budgetInput').value);
+  setBudget(isNaN(v) || v <= 0 ? 0 : v);
+  renderBudget(true);
+  renderScore(true);
+  chatSay(isNaN(v) || v <= 0 ? '预算已清除,需要的话随时再设一个。' : `收到,月度预算记为 <b>¥${fmtMoney(v)}</b>。以后我会帮你盯着进度。`);
+});
+$('budgetInput').addEventListener('keydown', e=>{ if (e.key === 'Enter') $('btnBudgetSave').click(); });
+$('chatAsks').addEventListener('click', e=>{
+  const chip = e.target && e.target.closest ? e.target.closest('.chip') : null;
+  if (!chip) return;
+  const q = chip.getAttribute('data-q');
+  chatSay(q, 'me');
+  setTimeout(()=>chatSay(answerQuestion(q)), 260);
+});
+['reimburseInput','merchantInput','aaInput','siteNameInput','siteMailInput'].forEach(id=>{
+  const el = $(id);
+  if (el) el.addEventListener('input', previewRules);
+});
+renderChat();
+previewRules();
+enableSpotlight();
+
 /* 跟随系统深浅色切换时, 更新图表主题并重绘 */
 if (window.matchMedia){
   const mq = window.matchMedia('(prefers-color-scheme: dark)');
@@ -1537,7 +2191,11 @@ $('btnExport').addEventListener('click', ()=>{
 
 /* 自动化验收: 打开 index.html?demo=1 会自动跑示例数据, 并把结果写进网页标题,
    便于用无头浏览器(或人工看标签页标题)确认前端逻辑在真实浏览器里正常。
-   附加参数: &zip=1 改为抓取 tests/fixtures/sample_bill.zip 测试 zip 直传。 */
+   附加参数: &zip=1 改为抓取 tests/fixtures/sample_bill.zip 测试 zip 直传;
+             &noanim=1 关闭所有动效(截图验收/无障碍用)。 */
+if (typeof location !== 'undefined' && /[?&]noanim=1/.test(location.search)){
+  document.documentElement.classList.add('no-anim');
+}
 if (typeof location !== 'undefined' && /[?&]demo=1/.test(location.search)){
   const r2 = x => Math.round(x*100)/100;
   const useZip = /[?&]zip=1/.test(location.search);
@@ -1555,12 +2213,43 @@ if (typeof location !== 'undefined' && /[?&]demo=1/.test(location.search)){
       reportInfo = url.startsWith('data:image/png') ? 'ok(' + url.length + 'B)' : 'bad';
     } catch(e){ reportInfo = 'ERR:' + (e && e.message || e); }
     const q = s => { try { return document.querySelectorAll(s).length; } catch(e){ return -1; } };
+    const txt = id => { const e = document.getElementById(id); return e ? (e.textContent||'').slice(0,24) : 'missing'; };
+    // 移动端体检: 视口宽度 / 是否横向溢出 / 最宽元素
+    const vw = window.innerWidth || 0;
+    const sw = (document.documentElement && document.documentElement.scrollWidth) || 0;
+    let widest = '', widestW = 0;
+    try {
+      const all = document.querySelectorAll('body *');
+      for (let i=0;i<all.length;i++){
+        const r = all[i].getBoundingClientRect();
+        if (r.width > widestW && r.width > vw + 1){
+          widestW = Math.round(r.width);
+          widest = (all[i].tagName||'').toLowerCase() + '.' + (all[i].className||'').toString().split(' ')[0];
+        }
+      }
+    } catch(e){}
+    const hs = computeHealthScore();
+    const chatA = answerQuestion('我哪类花得最多?');
+    // 等数字滚动动画结束后再写标题, 这样读到的显示值与计算值一致
+    setTimeout(()=>{
     document.title = 'E2E v' + APP_VERSION + ' ' + JSON.stringify({
       来源: useZip ? 'zip' : 'demo',
-      品牌: (document.getElementById('brandName')||{}).textContent || '',
+      主题: (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light',
+      视口宽: vw,
+      横向溢出: sw > vw + 1 ? ('YES ' + sw) : 'no',
+      超宽元素: widest ? (widest + '@' + widestW) : '无',
+      品牌: txt('brandName'),
+      背景层: q('.aurora i') + '光晕+' + q('.grain') + '颗粒',
+      健康分计算: hs.score,
+      健康分显示: txt('scoreVal'),
+      扣分项: hs.items.filter(i=>i.t==='minus').length,
+      预算: txt('budgetPct'),
       建议条数: q('#adviceGrid .advice'),
       知识库条数: q('#kbList details'),
-      笔记框: document.getElementById('notesArea') ? 'ok' : 'missing',
+      对话气泡: q('#chatBox .bubble'),
+      问答按钮: q('#chatAsks .chip'),
+      问答测试: chatA.slice(0, 40),
+      规则预览: (document.getElementById('pvAA')||{}).className || 'missing',
       真实消费: r2(st.spendTotal),
       退款: r2(spends.reduce((s,o)=>s+o.refund,0)),
       报销剔除: r2(st.reimburseSum),
@@ -1569,6 +2258,7 @@ if (typeof location !== 'undefined' && /[?&]demo=1/.test(location.search)){
       分类: cats,
       长图: reportInfo
     });
+    }, 1300);
   }).catch(e=>{ document.title = 'E2E_ERR ' + (e && e.message || e); });
 }
 </script>
