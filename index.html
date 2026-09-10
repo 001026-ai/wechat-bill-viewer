@@ -539,16 +539,58 @@
   }
   .btn{backdrop-filter:blur(18px) saturate(180%); -webkit-backdrop-filter:blur(18px) saturate(180%)}
 
-  /* 极光: i = 视差容器, b = 实际光斑(位置/颜色/时长由 JS 随机生成) */
-  .aurora i{position:absolute;display:block;will-change:transform;transition:transform .5s cubic-bezier(.2,.8,.35,1)}
-  .aurora i b{display:block;width:100%;height:100%;border-radius:50%;filter:blur(72px);will-change:transform;
-    animation:driftA 34s ease-in-out infinite}
+  /* 极光: i = 视差/散开容器(JS 写 transform), b = 流动光斑(CSS 动画) */
+  .aurora i{position:absolute;display:block;will-change:transform,opacity;transition:none}
+  .aurora i b{
+    display:block;width:100%;height:100%;filter:blur(74px);will-change:transform;
+    animation:flow1 34s ease-in-out infinite, morphA 21s ease-in-out infinite;
+  }
   .aurora i:nth-child(1){width:62vw;height:62vw;left:-12vw;top:-18vw}
   .aurora i:nth-child(2){width:56vw;height:56vw;right:-14vw;top:-6vw}
   .aurora i:nth-child(3){width:60vw;height:60vw;left:8vw;bottom:-26vw}
   .aurora i:nth-child(4){width:44vw;height:44vw;right:-6vw;bottom:-18vw}
   .aurora i b{background:radial-gradient(circle at 50% 50%, rgba(120,190,255,.9), transparent 68%)}
-  @keyframes driftA{0%,100%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(3vw,-3vw,0) scale(1.12)}}
+  /* 多套不规则路径: 每个光斑随机分配, 形成"无序流动"的极光 */
+  @keyframes flow1{
+    0%,100%{transform:translate3d(0,0,0) scale(1) rotate(0deg)}
+    23%{transform:translate3d(6vw,-5vw,0) scale(1.16) rotate(14deg)}
+    47%{transform:translate3d(-4vw,6vw,0) scale(.92) rotate(-9deg)}
+    71%{transform:translate3d(5vw,4vw,0) scale(1.10) rotate(7deg)}
+  }
+  @keyframes flow2{
+    0%,100%{transform:translate3d(0,0,0) scale(1.02) rotate(0deg)}
+    19%{transform:translate3d(-7vw,4vw,0) scale(.9) rotate(-13deg)}
+    44%{transform:translate3d(5vw,7vw,0) scale(1.2) rotate(9deg)}
+    68%{transform:translate3d(-3vw,-6vw,0) scale(1.06) rotate(-5deg)}
+    85%{transform:translate3d(4vw,2vw,0) scale(.96) rotate(11deg)}
+  }
+  @keyframes flow3{
+    0%,100%{transform:translate3d(0,0,0) scale(1.05) rotate(0deg)}
+    27%{transform:translate3d(8vw,3vw,0) scale(.93) rotate(17deg)}
+    52%{transform:translate3d(-6vw,-7vw,0) scale(1.22) rotate(-12deg)}
+    76%{transform:translate3d(2vw,6vw,0) scale(1.0) rotate(5deg)}
+  }
+  @keyframes flow4{
+    0%,100%{transform:translate3d(0,0,0) scale(.98) rotate(0deg)}
+    31%{transform:translate3d(-9vw,-3vw,0) scale(1.18) rotate(-16deg)}
+    58%{transform:translate3d(6vw,8vw,0) scale(.9) rotate(10deg)}
+    82%{transform:translate3d(-4vw,5vw,0) scale(1.12) rotate(-6deg)}
+  }
+  @keyframes flow5{
+    0%,100%{transform:translate3d(0,0,0) scale(1.08) rotate(0deg)}
+    25%{transform:translate3d(4vw,8vw,0) scale(.95) rotate(12deg)}
+    50%{transform:translate3d(-8vw,2vw,0) scale(1.24) rotate(-14deg)}
+    74%{transform:translate3d(7vw,-6vw,0) scale(1.04) rotate(8deg)}
+  }
+  /* 形状缓慢变形, 像流动的液体光 */
+  @keyframes morphA{
+    0%,100%{border-radius:52% 48% 56% 44% / 48% 52% 44% 56%}
+    33%{border-radius:44% 56% 47% 53% / 56% 44% 54% 46%}
+    66%{border-radius:57% 43% 51% 49% / 43% 57% 47% 53%}
+  }
+  @media (prefers-reduced-motion: reduce){.aurora i b{animation:none}}
+  /* 滚动时背景轻微位移(上下行一致), 由 JS 写 --scrollShift */
+  .aurora{transform:translate3d(0, var(--scrollShift, 0px), 0);will-change:transform}
   /* 光标柔光 */
   .cursor-glow{
     position:fixed;left:0;top:0;width:520px;height:520px;margin:-260px 0 0 -260px;border-radius:50%;
@@ -647,16 +689,9 @@
   }
   .lite .fx{display:none}
   @media (prefers-reduced-motion: reduce){.fx{display:none}}
-  /* 光标柔光: 外层柔光 + 内圈细环(跟随鼠标, 移动时轻微扩张) */
+  /* 光标柔光(已移除细环, 只保留一层柔和光晕) */
   .cursor-glow{z-index:-2}
-  .cursor-glow i{
-    position:absolute;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;
-    border:1px solid rgba(120,220,255,.42);
-    transition:transform .35s cubic-bezier(.2,.7,.3,1), opacity .35s;
-  }
-  @media (prefers-color-scheme: dark){
-    .cursor-glow i{border-color:rgba(120,220,255,.5)}
-  }
+  .lite .cursor-glow{display:none}
   /* 磁吸按钮: 轻微跟随鼠标(JS 写入 --mx/--my 位移) */
   .btn{transform:translate3d(var(--bx,0px), var(--by,0px), 0)}
   .btn:hover{transform:translate3d(var(--bx,0px), calc(var(--by,0px) - 2px), 0)}
@@ -673,7 +708,7 @@
 <!-- 质感背景: 极光光晕(每次随机, 跟随鼠标) + 赛博粒子层 + 光标柔光 + 颗粒 -->
 <div class="aurora" id="aurora" aria-hidden="true"><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i></div>
 <canvas class="fx" id="fx" aria-hidden="true"></canvas>
-<div class="cursor-glow" id="cursorGlow" aria-hidden="true"><i id="cursorRing"></i></div>
+<div class="cursor-glow" id="cursorGlow" aria-hidden="true"></div>
 <div class="grain" id="grain" aria-hidden="true"></div>
 
 <!-- ===================== 顶部导航 ===================== -->
@@ -2274,16 +2309,18 @@ function randomizeAurora(){
   const dark = auroraIsDark();
   const rnd = (a,b)=> a + Math.random()*(b-a);
   const hues = coolHues(4);
+  const flows = ['flow1','flow2','flow3','flow4','flow5'];
   const blobs = root.querySelectorAll('i');
   AURORA_STATE.blobs = [];
   for (let i=0;i<blobs.length;i++){
     const wrap = blobs[i], inner = wrap.querySelector('b');
     // 尺寸 / 位置 / 色相 全部随机
-    const size = rnd(46, 82);                       // vw
+    const size = rnd(46, 84);                       // vw
     wrap.style.width = size + 'vw';
     wrap.style.height = size + 'vw';
-    wrap.style.left = rnd(-22, 70) + 'vw';
-    wrap.style.top = rnd(-26, 68) + 'vw';
+    const leftVw = rnd(-24, 68), topVw = rnd(-28, 66);
+    wrap.style.left = leftVw + 'vw';
+    wrap.style.top = topVw + 'vw';
     wrap.style.right = 'auto';
     wrap.style.bottom = 'auto';
     // 冷色 + 高透明
@@ -2293,15 +2330,21 @@ function randomizeAurora(){
     const alpha = dark ? rnd(.44, .70) : rnd(.34, .58);
     if (inner){
       inner.style.background = `radial-gradient(circle at 50% 50%, hsl(${hue.toFixed(0)} ${sat.toFixed(0)}% ${light.toFixed(0)}% / ${alpha.toFixed(2)}), transparent 68%)`;
-      // 动效时长与相位随机, 每次观感不同
-      inner.style.animationDuration = rnd(26, 54).toFixed(1) + 's';
-      inner.style.animationDelay = (-rnd(0, 26)).toFixed(1) + 's';
-      const scale = rnd(1.05, 1.22).toFixed(2);
-      inner.style.setProperty('--drift-scale', scale);
-      inner.style.animationName = 'driftA';
+      // 随机"流动"路径 + 时长 + 相位 → 四个光斑各走各的, 形成无序流动
+      const flow = flows[Math.floor(Math.random()*flows.length)];
+      const dur = rnd(30, 62).toFixed(1);
+      const delay = (-rnd(0, 30)).toFixed(1);
+      const morphDur = rnd(16, 30).toFixed(1);
+      inner.style.animation = flow + ' ' + dur + 's ease-in-out infinite ' + delay + 's, morphA ' + morphDur + 's ease-in-out infinite';
     }
-    // 视差深度(0.25 ~ 1.0)
-    AURORA_STATE.blobs.push({ el: wrap, depth: rnd(0.25, 1.0) });
+    AURORA_STATE.blobs.push({
+      el: wrap, inner,
+      depth: rnd(0.25, 1.0),        // 视差深度
+      cxVw: leftVw + size/2,        // 基准中心(vw), 用于计算与光标的距离
+      cyVw: topVw + size/2,
+      sizeVw: size,
+      spread: 0                     // 散开程度 0..1
+    });
   }
   // 颗粒种子随机 → 每次纹理都不同
   const grain = $('grain');
@@ -2312,40 +2355,76 @@ function randomizeAurora(){
   }
   document.documentElement.style.setProperty('--aurora-alpha', dark ? '.78' : '.62');
 }
-/** 鼠标视差 + 光标柔光 */
+/** 鼠标视差 + 触碰散开 + 滚动位移 */
 function initAuroraPointer(){
   if (reduceMotion()) return;
+  AURORA_STATE.enabled = true;
   let fine = true;
   try { fine = !window.matchMedia || window.matchMedia('(pointer: fine)').matches; } catch(e){}
-  if (!fine) return;                      // 触屏设备不启用(手机上是手指拖动, 会干扰滚动)
-  AURORA_STATE.enabled = true;
-  const glow = $('cursorGlow');
-  const onMove = e => {
-    const w = window.innerWidth || 1, h = window.innerHeight || 1;
-    AURORA_STATE.tx = (e.clientX / w - .5);
-    AURORA_STATE.ty = (e.clientY / h - .5);
-    if (glow){
-      glow.style.transform = 'translate3d(' + e.clientX + 'px,' + e.clientY + 'px,0)';
-      glow.classList.add('on');
-    }
-  };
-  window.addEventListener('mousemove', onMove, {passive:true});
-  window.addEventListener('mouseleave', ()=>{ if (glow) glow.classList.remove('on'); }, {passive:true});
+
+  if (fine){
+    const glow = $('cursorGlow');
+    window.addEventListener('mousemove', e => {
+      const w = window.innerWidth || 1, h = window.innerHeight || 1;
+      AURORA_STATE.tx = (e.clientX / w - .5);
+      AURORA_STATE.ty = (e.clientY / h - .5);
+      AURORA_STATE.px = e.clientX; AURORA_STATE.py = e.clientY;
+      if (glow){ glow.style.transform = 'translate3d(' + e.clientX + 'px,' + e.clientY + 'px,0)'; glow.classList.add('on'); }
+    }, {passive:true});
+    window.addEventListener('mouseleave', ()=>{
+      if (glow) glow.classList.remove('on');
+      AURORA_STATE.px = AURORA_STATE.py = null;
+    }, {passive:true});
+  }
+
   const tick = () => {
     const S = AURORA_STATE;
     if (!document.hidden){
       S.mx += (S.tx - S.mx) * 0.055;
       S.my += (S.ty - S.my) * 0.055;
+      const w = window.innerWidth || 1, h = window.innerHeight || 1;
+      const touchR = Math.min(w, h) * 0.42;          // 触碰散开的影响半径
       for (let i=0;i<S.blobs.length;i++){
         const b = S.blobs[i];
-        const dx = -S.mx * 60 * b.depth;
-        const dy = -S.my * 60 * b.depth;
-        b.el.style.transform = 'translate3d(' + dx.toFixed(2) + 'px,' + dy.toFixed(2) + 'px,0)';
+        // 视差位移
+        let dx = -S.mx * 60 * b.depth;
+        let dy = -S.my * 60 * b.depth;
+        // 触碰散开: 离光标越近越"散"(放大 + 淡出 + 被推开)
+        let target = 0;
+        if (fine && S.px !== null){
+          const bx = b.cxVw / 100 * w, by = b.cyVw / 100 * h;
+          const d = Math.hypot(bx - S.px, by - S.py);
+          if (d < touchR) target = Math.pow(1 - d / touchR, 1.35);   // 0..1
+        }
+        b.spread += (target - b.spread) * 0.10;
+        if (b.spread > 0.001 && fine && S.px !== null){
+          const bx = b.cxVw / 100 * w, by = b.cyVw / 100 * h;
+          const ddx = bx - S.px, ddy = by - S.py;
+          const d = Math.hypot(ddx, ddy) || 1;
+          dx += (ddx / d) * b.spread * 110;          // 被推开
+          dy += (ddy / d) * b.spread * 110;
+        }
+        const scale = 1 + b.spread * 0.55;           // 光散开 = 变大变淡
+        b.el.style.transform = 'translate3d(' + dx.toFixed(1) + 'px,' + dy.toFixed(1) + 'px,0) scale(' + scale.toFixed(3) + ')';
+        b.el.style.opacity = (1 - b.spread * 0.45).toFixed(3);
       }
     }
     S.raf = requestAnimationFrame(tick);
   };
   if (typeof requestAnimationFrame === 'function') tick();
+
+  // 滚动位移(上下行对称: 直接用 scrollY 计算, 正反方向效果一致)
+  let lastShift = 0;
+  const onScroll = ()=>{
+    const y = window.pageYOffset || document.documentElement.scrollTop || 0;
+    const shift = -(y * 0.06);
+    if (Math.abs(shift - lastShift) > 0.5){
+      lastShift = shift;
+      document.documentElement.style.setProperty('--scrollShift', shift.toFixed(1) + 'px');
+    }
+  };
+  window.addEventListener('scroll', onScroll, {passive:true});
+  onScroll();
 }
 
 /* =========================================================
@@ -2525,13 +2604,11 @@ function initPointerFX(){
   try { fine = !window.matchMedia || window.matchMedia('(pointer: fine)').matches; } catch(e){}
   if (!fine) return;
 
-  const glow = $('cursorGlow'), ring = $('cursorRing');
-  let ringX = 0, ringY = 0, curX = 0, curY = 0, started = false;
+  const glow = $('cursorGlow');
   let lastBtn = null, lastCard = null;
 
   window.addEventListener('mousemove', e=>{
-    curX = e.clientX; curY = e.clientY;
-    if (!started){ ringX = curX; ringY = curY; started = true; }
+    const curX = e.clientX, curY = e.clientY;
     // 粒子层感知鼠标
     if (FX.parts && FX.parts.length){ FX.mx = curX; FX.my = curY; FX.active = true; }
     // 柔光 + 内环(环有一点延迟跟随, 移动越快拉得越开)
@@ -2571,21 +2648,6 @@ function initPointerFX(){
     if (lastCard){ lastCard.style.setProperty('--rx','0deg'); lastCard.style.setProperty('--ry','0deg'); lastCard = null; }
     FX.active = false; FX.mx = FX.my = -9999;
   }, {passive:true});
-
-  // 内环延迟跟随 + 依据速度扩张(页面隐藏时暂停, 省电)
-  const ringLoop = ()=>{
-    if (!document.hidden){
-      ringX += (curX - ringX) * 0.16;
-      ringY += (curY - ringY) * 0.16;
-      const d = Math.hypot(curX - ringX, curY - ringY);
-      if (ring){
-        const s = 1 + Math.min(d / 90, 0.9);
-        ring.style.transform = 'translate3d(' + (ringX - curX) + 'px,' + (ringY - curY) + 'px,0) scale(' + s.toFixed(3) + ')';
-      }
-    }
-    requestAnimationFrame(ringLoop);
-  };
-  if (typeof requestAnimationFrame === 'function') ringLoop();
 
   // 点击涟漪(背景粒子层上的轻微反馈)
   window.addEventListener('click', e=>{
@@ -2735,15 +2797,31 @@ $('btnNoteClear').addEventListener('click', ()=>{
   setTimeout(()=>{ $('noteStatus').textContent=''; }, 2000);
 });
 
-/* 滚动淡入动效 */
-if (typeof IntersectionObserver !== 'undefined'){
-  const io = new IntersectionObserver(entries=>{
-    entries.forEach(en=>{ if (en.isIntersecting){ en.target.classList.add('in'); io.unobserve(en.target); } });
-  }, {threshold:.12, rootMargin:'0px 0px -40px 0px'});
-  document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
-} else {
-  document.querySelectorAll('.reveal').forEach(el=>el.classList.add('in'));
+/* 滚动入场动效(滚动驱动, 上下行完全一致: 进入视口加入场, 离开视口复原) */
+function updateReveal(){
+  const els = document.querySelectorAll('.reveal');
+  const vh = window.innerHeight || 800;
+  for (let i=0;i<els.length;i++){
+    const r = els[i].getBoundingClientRect();
+    const visible = (r.top < vh - 60) && (r.bottom > 80);
+    els[i].classList.toggle('in', visible);
+  }
 }
+(function initReveal(){
+  if (document.documentElement.classList.contains('no-anim')){
+    document.querySelectorAll('.reveal').forEach(el=>el.classList.add('in'));
+    return;
+  }
+  let ticking = false;
+  const onScroll = ()=>{
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(()=>{ ticking = false; updateReveal(); });
+  };
+  window.addEventListener('scroll', onScroll, {passive:true});
+  window.addEventListener('resize', onScroll, {passive:true});
+  updateReveal();
+})();
 /* ---------- v3: 预算 / 问答 / 规则实时预览 ---------- */
 $('btnBudgetSave').addEventListener('click', ()=>{
   const v = parseFloat($('budgetInput').value);
@@ -2855,6 +2933,38 @@ if (typeof location !== 'undefined' && /[?&]demo=1/.test(location.search)){
       kbInfo = (c0 && c0.classList.contains('open') ? '展开ok' : '未展开')
              + '/' + (it && it.classList.contains('flash') ? '高亮ok' : '未高亮');
     } catch(e){ kbInfo = 'ERR:' + (e && e.message || e); }
+    // 流动光斑 / 触碰散开 / 上下滚动一致性 三项验证
+    let flowName = 'n/a', scrollA = 'n/a', scrollB = 'n/a';
+    try {
+      const bEl = document.querySelector('.aurora i b');
+      flowName = bEl ? (getComputedStyle(bEl).animationName || 'none') : 'missing';
+    } catch(e){ flowName = 'ERR'; }
+    try {
+      // 1) 上下滚动一致性: 用知识库卡片做往返测试
+      //    滚到该区块 → 应入场(in); 滚回顶部 → 应复原(out)。两者都发生 = 上下行动效一致
+      const prevSB = document.documentElement.style.scrollBehavior;
+      document.documentElement.style.scrollBehavior = 'auto';
+      const probe = document.querySelector('#advice .kb-card') || document.querySelector('#advice .reveal');
+      if (probe){
+        probe.scrollIntoView({block:'center'});
+        setTimeout(()=>{
+          scrollA = probe.classList.contains('in') ? 'in' : 'out';       // 期望 in
+          window.scrollTo(0, 0);
+          setTimeout(()=>{
+            scrollB = probe.classList.contains('in') ? 'in' : 'out';     // 期望 out
+            document.documentElement.style.scrollBehavior = prevSB;
+          }, 260);
+        }, 260);
+      }
+      // 2) 触发一次合成鼠标移动, 让光斑"散开"(稍后在延迟回调里读取 spread)
+      const b0 = AURORA_STATE.blobs[0];
+      if (b0){
+        const w = window.innerWidth, h = window.innerHeight;
+        window.dispatchEvent(new MouseEvent('mousemove', {
+          clientX: b0.cxVw/100*w, clientY: b0.cyVw/100*h, bubbles:true
+        }));
+      }
+    } catch(e){ flowName += '|ERR'; }
     // 粒子层验证放在延迟回调里(等动画帧真正画过之后再采样)
     const fxPaintOf = () => {
       try {
@@ -2883,6 +2993,15 @@ if (typeof location !== 'undefined' && /[?&]demo=1/.test(location.search)){
       粒子数: (typeof FX !== 'undefined' && FX.parts) ? FX.parts.length : 'off',
       粒子画布: (function(){ const c = document.getElementById('fx'); return c ? (c.width + 'x' + c.height) : 'missing'; })(),
       粒子绘制: fxPaintOf(),
+      光斑流动: flowName,
+      散开测试: (function(){
+        try {
+          const b0 = AURORA_STATE.blobs[0];
+          if (!b0) return 'n/a';
+          return 'spread=' + b0.spread.toFixed(2) + ' opacity=' + (b0.el.style.opacity || '1');
+        } catch(e){ return 'ERR'; }
+      })(),
+      滚动一致: '滚到区块=' + scrollA + ' 滚回顶部=' + scrollB,
       健康分计算: hs.score,
       健康分显示: txt('scoreVal'),
       扣分项: hs.items.filter(i=>i.t==='minus').length,
