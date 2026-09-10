@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>微信账单分析助手</title>
+<!-- 本地库: 双击 index.html 即可离线使用, 无需联网无需服务器 -->
+<script src="lib/xlsx.full.min.js"></script>
+<script src="lib/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#f4f6fb; --card:#ffffff; --ink:#1f2937; --sub:#6b7280;
+    --line:#e5e7eb; --brand:#4f7cff; --brand2:#6ea8ff;
+    --green:#10b981; --red:#ef4444; --amber:#f59e0b; --violet:#8b5cf6;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:-apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;line-height:1.55}
+  .wrap{max-width:1100px;margin:0 auto;padding:16px}
+  header{display:flex;align-items:center;gap:12px;padding:14px 4px}
+  header .logo{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--brand),var(--brand2));display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px}
+  header h1{font-size:20px;font-weight:700}
+  header p{font-size:12px;color:var(--sub)}
+  .privacy{background:#eef4ff;border:1px solid #d6e4ff;color:#3557b0;font-size:12px;border-radius:10px;padding:8px 12px;margin:6px 0 14px}
+  .drop{background:var(--card);border:2px dashed #c3d0ee;border-radius:16px;padding:36px 16px;text-align:center;cursor:pointer;transition:.2s}
+  .drop:hover,.drop.over{border-color:var(--brand);background:#f7faff}
+  .drop .big{font-size:40px}
+  .drop .t1{font-size:16px;font-weight:600;margin-top:6px}
+  .drop .t2{font-size:12px;color:var(--sub);margin-top:4px}
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0}
+  .toolbar label{font-size:13px;color:var(--sub)}
+  .toolbar input[type=date]{border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:13px;background:#fff;color:var(--ink)}
+  .btn{border:none;border-radius:8px;padding:7px 14px;font-size:13px;cursor:pointer;background:#eef1f8;color:var(--ink)}
+  .btn.primary{background:var(--brand);color:#fff}
+  .btn:hover{filter:brightness(.96)}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:6px 0 14px}
+  .card{background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--line)}
+  .card .lb{font-size:12px;color:var(--sub)}
+  .card .vl{font-size:22px;font-weight:700;margin-top:2px}
+  .card .sm{font-size:11px;color:var(--sub);margin-top:2px}
+  .card.hl{background:linear-gradient(135deg,var(--brand),#3f6beb);color:#fff;border:none}
+  .card.hl .lb,.card.hl .sm{color:#dfe8ff}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+  .panel h3{font-size:15px;margin-bottom:8px}
+  .panel .chartbox{position:relative;height:280px}
+  .full{grid-column:1/-1}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{padding:7px 8px;border-bottom:1px solid #eef0f4;text-align:left;white-space:nowrap}
+  th{color:var(--sub);font-weight:600;background:#fafbfe;position:sticky;top:0}
+  .tabwrap{overflow:auto;max-height:480px}
+  .pill{display:inline-block;border-radius:20px;padding:1px 9px;font-size:11px;font-weight:600}
+  .pill.spend{background:#e6f7f0;color:#0b8a5f}
+  .pill.nonspend{background:#f3f4f6;color:#6b7280}
+  .pill.cat{background:#eef2ff;color:#4f46e5}
+  .filters{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;align-items:center}
+  .filters select{border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-size:12.5px}
+  .rules-note{font-size:12px;color:var(--sub);background:#fafbfe;border-radius:8px;padding:8px 12px;margin:4px 0 0}
+  code{background:#eef1f8;border-radius:4px;padding:0 4px;font-size:11px}
+  footer{text-align:center;color:#9ca3af;font-size:11px;padding:18px 0 30px}
+  .tag-aa{background:#fef3c7;color:#92400e}
+  .tag-reimburse{background:#fee2e2;color:#b91c1c}
+  @media(max-width:760px){.grid2{grid-template-columns:1fr}.panel .chartbox{height:240px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">🧾</div>
+    <div>
+      <h1>微信账单分析助手</h1>
+      <p>本地隐私分析 · 消费分类 · 报销与AA结算</p>
+    </div>
+  </header>
+
+  <div class="privacy">🔒 <b>隐私承诺:</b> 账单文件只在您的浏览器里解析, 不会上传到任何服务器, 可放心发给好友使用(对方导入的是自己的账单)。</div>
+
+  <!-- 上传区 -->
+  <div class="drop" id="drop">
+    <div class="big">📁</div>
+    <div class="t1">点击选择 / 拖拽微信账单文件到此处</div>
+    <div class="t2">支持: 微信支付账单流水文件 .xlsx / .csv(从微信“钱包-账单-下载账单”导出)</div>
+  </div>
+  <input type="file" id="file" accept=".xlsx,.xls,.csv" style="display:none">
+
+  <div id="result" style="display:none">
+    <!-- 筛选工具栏 -->
+    <div class="toolbar">
+      <label>📅 从</label><input type="date" id="d0">
+      <label>到</label><input type="date" id="d1">
+      <button class="btn" id="btnAll">整个区间</button>
+      <button class="btn" id="btnMonth">本月</button>
+      <span style="flex:1"></span>
+      <button class="btn primary" id="btnExport">⬇ 导出明细CSV</button>
+    </div>
+
+    <!-- 总览卡片 -->
+    <div class="cards" id="cards"></div>
+
+    <!-- 图表 -->
+    <div class="grid2">
+      <div class="panel">
+        <h3>🍩 消费分类构成</h3>
+        <div class="chartbox"><canvas id="pieChart"></canvas></div>
+      </div>
+      <div class="panel">
+        <h3>📈 每日消费趋势</h3>
+        <div class="chartbox"><canvas id="barChart"></canvas></div>
+      </div>
+      <div class="panel full">
+        <h3>🧮 分类汇总</h3>
+        <div style="overflow:auto"><table id="sumTable"></table></div>
+        <div class="rules-note" id="ruleNote"></div>
+      </div>
+    </div>
+
+    <!-- 逐笔明细 -->
+    <div class="panel">
+      <h3>📋 逐笔明细</h3>
+      <div class="filters">
+        <select id="viewFilter">
+          <option value="all">全部</option>
+          <option value="spend">只看消费</option>
+          <option value="nonspend">只看非消费</option>
+        </select>
+        <select id="catFilter"><option value="all">全部分类</option></select>
+        <span style="font-size:12px;color:var(--sub)" id="cntInfo"></span>
+      </div>
+      <div class="tabwrap"><table id="detailTable"></table></div>
+    </div>
+  </div>
+
+  <footer>数据仅在本地处理 · 规则移植自 dsh/WeChatBill · 部署后可微信内直接使用</footer>
+</div>
+
+<script>
+/* =========================================================
+ *  微信账单分析助手 — 纯前端逻辑
+ *  分类规则与 D:\学习内容\wechatbill\test.py 保持一致
+ * ========================================================= */
+
+/* ---------------- 规则区(如需调整, 改这里) ---------------- */
+const RULES = {
+  // 报销剔除: 交易对方或商品含这些词 → 整笔不算消费
+  reimburseKw: ['摩天轮'],
+  // AA 结算组: name=名称; spendKw=垫付消费关键词; incomeKw=AA回款人关键词
+  aaGroups: [
+    { name: '09-01打球+廷梅饭局', spendKw: ['玉环奥体体育', '廷梅'], incomeKw: ['谢奕铭', '高晨轩', '好印象'] }
+  ]
+};
+
+/* 消费分类关键词(顺序即优先级) */
+const CAT_KEYWORDS = {
+  '医疗健康': ['药房','药店','点药','药品','买药','药费'],
+  '交通':     ['先骑后付','地铁','公交','火车','高铁','12306','中铁','铁路','携程','顺风车','滴滴','打车','机票','出行','乘车','青奇','加油','加油站','壳牌','中油','燃油','停车'],
+  '生活缴费': ['电费','水费','燃气','物业','缴费','话费','宽带'],
+  '充值':     ['充值'],
+  '购物':     ['超市','便利店','商场','淘宝','京东','拼多多','商店','抖音','电商','全家','十足','淘集鲜','食品商行','袋鼠先生','零食','杂货'],
+  '餐饮':     ['餐饮','外卖','食堂','餐厅','美食','麻辣烫','咖啡','蜜雪','古茗','拌粉','饭团','螺蛳粉','小吃','便当','奶茶','汤圆','炒鸡','米饭','luckin','coffee','茉酸奶','美团','茶饮','千喜鹤','小馆','水饺','小笼包','拌饭','优果','水果','豆浆'],
+  '娱乐运动': ['TV','会员','视频','电影','游戏','音乐','影院','阅读','摩天轮','羽毛球','体育馆','健身','景区','游乐'],
+  '其他消费': ['充电宝','API']
+};
+const TRANSFER_KW = ['转账','红包','还款'];
+
+const PALETTE = ['#4f7cff','#f59e0b','#10b981','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#64748b','#84cc16'];
+
+/* ---------------- 工具 ---------------- */
+let allRows = [];      // 全部明细(支出+收入)
+let charts = {};
+
+function $(id){ return document.getElementById(id); }
+function toNum(v){ const n = parseFloat(String(v).replace(/[¥￥,\s元]/g,'')); return isNaN(n) ? 0 : n; }
+function parseDT(s){
+  if (s===null || s===undefined || s==='') return null;
+  // Excel 日期序列号
+  if (typeof s === 'number'){ const d = new Date(Math.round((s-25569)*86400*1000)); return isNaN(d.getTime())?null:d; }
+  const str = String(s).trim();
+  let m;
+  // 2026-09-06 19:58:42 / 2026-9-6 19:58
+  if ((m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})[ T]?(\d{1,2})?:?(\d{1,2})?:?(\d{1,2})?/)))
+    return new Date(+m[1], +m[2]-1, +m[3], +(m[4]||0), +(m[5]||0), +(m[6]||0));
+  // 2026/9/6 19:58
+  if ((m = str.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})[ T]?(\d{1,2})?:?(\d{1,2})?:?(\d{1,2})?/)))
+    return new Date(+m[1], +m[2]-1, +m[3], +(m[4]||0), +(m[5]||0), +(m[6]||0));
+  // 9/6/26 或 9/6/2026 (SheetJS 猜出来的月/日/年)
+  if ((m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})[ T]?(\d{1,2})?:?(\d{1,2})?:?(\d{1,2})?/))){
+    let y = +m[3]; if (y < 100) y += 2000;
+    return new Date(y, +m[1]-1, +m[2], +(m[4]||0), +(m[5]||0), +(m[6]||0));
+  }
+  const d = new Date(str.replace(' ', 'T'));
+  return isNaN(d.getTime()) ? null : d;
+}
+function fmtMoney(n){ return (Math.round(n*100)/100).toLocaleString('zh-CN', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function refundOf(status){
+  const s = String(status||'');
+  if (s.includes('全额退款')) return Infinity;
+  const m = s.match(/[¥￥]\s*([\d.]+)/);        // 兼容半角 ¥ 与全角 ￥
+  return m ? parseFloat(m[1]) : 0;
+}
+
+/* ---------------- 解析微信账单文件 ---------------- */
+async function parseFile(file){
+  const buf = await file.arrayBuffer();
+  const head = new Uint8Array(buf.slice(0,4));
+  const isZip = head[0]===0x50 && head[1]===0x4B;   // PK
+  let rows;
+  if (isZip){                    // xlsx
+    const wb = XLSX.read(buf, {type:'array'});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:false, defval:''});
+  } else {                       // csv 文本(兼容 utf-8 / gbk)
+    let text = new TextDecoder('utf-8').decode(buf);
+    if (text.includes('\uFFFD')) text = new TextDecoder('gbk').decode(buf);
+    // raw:true 关键: 阻止 SheetJS 把 "2026-09-06 19:58:42" 自动猜成 "9/6/26"
+    const wb = XLSX.read(text, {type:'string', raw:true});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:''});
+  }
+  // 定位明细表头行(含 交易时间 与 交易类型)
+  let hi = -1, cols = null;
+  for (let i=0;i<rows.length;i++){
+    const r = rows[i].map(c=>String(c||'').trim());
+    if (r.includes('交易时间') && r.includes('交易类型')){ hi = i; cols = r; break; }
+  }
+  if (hi<0) throw new Error('未找到微信账单明细表头行, 请确认是微信导出的账单文件');
+  const idx = name => cols.findIndex(c => c.includes(name));
+  const iTime=idx('交易时间'), iType=idx('交易类型'), iPeer=idx('交易对方'),
+        iItem=Math.max(idx('商品'),0)>=0 ? idx('商品') : idx('商品说明'),
+        iDir=idx('收/支'), iAmt=idx('金额'), iStatus=idx('当前状态'), iNote=idx('备注');
+  const out = [];
+  for (let i=hi+1;i<rows.length;i++){
+    const r = rows[i];
+    const t = parseDT(r[iTime]); if (!t) continue;
+    const dir = String(r[iDir]||'').trim();
+    if (dir!=='支出' && dir!=='收入') continue;      // 中性交易不参与
+    out.push({
+      t, dir,
+      type: String(r[iType]||''), peer: String(r[iPeer]||''),
+      item: String(r[iItem]!=null?r[iItem]:''), status: String(r[iStatus]||''),
+      note: String(iNote>=0&&r[iNote]!=null?r[iNote]:''),
+      amt: dir==='支出' ? toNum(r[iAmt]) : toNum(r[iAmt]),
+      rawAmt: toNum(r[iAmt])
+    });
+  }
+  return out;
+}
+
+/* ---------------- 分类 ---------------- */
+function classifyRow(o){
+  const text = o.peer + o.item;
+  const type = o.type;
+  // 1 退款
+  const ref = refundOf(o.status);
+  if (ref===Infinity || type.includes('退款')) return {cat:'退款剔除', spend:false, ref};
+  // 2 中性(资金划转)
+  if (/零钱通|理财|转出|转入/.test(type)) return {cat:'中性交易', spend:false, ref};
+  // 3 转账/红包/人情
+  if (/转账|红包|群收款/.test(type) || TRANSFER_KW.some(k=>text.includes(k))) return {cat:'转账', spend:false, ref};
+  // 4 报销剔除(规则)
+  if (RULES.reimburseKw.some(k=>text.includes(k))) return {cat:'报销剔除', spend:false, ref, reimbursed:true};
+  // 5 消费关键词
+  for (const [cat, kws] of Object.entries(CAT_KEYWORDS)){
+    if (kws.some(k=>text.includes(k))) return {cat, spend:true, ref};
+  }
+  // 6 扫码个人付款 → 生活消费
+  if (type.includes('扫二维码付款')) return {cat:'生活消费', spend:true, ref};
+  return {cat:'日常消费', spend:true, ref};
+}
+
+/* ---------------- 主流程 ---------------- */
+async function onFile(file){
+  let rows;
+  try { rows = await parseFile(file); }
+  catch(e){ alert('解析失败: '+e.message); return; }
+  allRows = rows;
+  const spends = rows.filter(r=>r.dir==='支出');
+  const incomes = rows.filter(r=>r.dir==='收入');
+  if (!spends.length){ alert('未找到支出记录'); return; }
+
+  // 逐笔分类 + 净额
+  spends.forEach(o=>{
+    const c = classifyRow(o);
+    o.cat = c.cat; o.isSpend = c.spend;
+    o.refund = c.ref===Infinity ? o.rawAmt : c.ref;
+    o.net = (c.ref===Infinity) ? 0 : Math.max(o.rawAmt - c.ref, 0);
+    o.aaGroup = ''; o.reimbursed = !!c.reimbursed;
+  });
+  incomes.forEach(o=>{ o.refund=0; o.net=o.rawAmt; });
+
+  // AA 结算: 给支出打组标, 记录回款
+  const aaFunds = {};   // groupName -> 回款合计
+  RULES.aaGroups.forEach(g=>{
+    const gSpends = spends.filter(o=>g.spendKw.some(k=>(o.peer+o.item).includes(k)));
+    if (!gSpends.length) return;
+    gSpends.forEach(o=>o.aaGroup = g.name);
+    const t0 = Math.min(...gSpends.map(o=>o.t.getTime()));
+    const funds = incomes.filter(inc=>g.incomeKw.some(k=>inc.peer.includes(k)) && inc.t.getTime()>=t0)
+                         .reduce((s,inc)=>s+inc.rawAmt, 0);
+    aaFunds[g.name] = { gross: gSpends.reduce((s,o)=>s+o.net,0), funds };
+  });
+
+  // 日期默认取整个区间
+  const ts = spends.map(o=>o.t.getTime());
+  $('d0').value = toDateStr(new Date(Math.min(...ts)));
+  $('d1').value = toDateStr(new Date(Math.max(...ts)));
+  $('result').style.display = 'block';
+  $('file').value = '';
+  render(aaFunds);
+}
+
+function toDateStr(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+
+/* ---------------- 渲染 ---------------- */
+function filteredSpends(){
+  const a = $('d0').value, b = $('d1').value;
+  const t0 = a?new Date(a+'T00:00:00').getTime() : -Infinity;
+  const t1 = b?new Date(b+'T23:59:59').getTime() : Infinity;
+  return allRows.filter(r=>r.dir==='支出' && r.t.getTime()>=t0 && r.t.getTime()<=t1);
+}
+
+function compute(spends, aaFunds){
+  // AA组: 若窗口内组消费完整保留则扣回款; 只含部分时按比例扣
+  const aaStat = {};
+  const normal = [];
+  spends.forEach(o=>{
+    if (o.aaGroup){
+      if (!aaStat[o.aaGroup]) aaStat[o.aaGroup] = {rows:[], netIn:0};
+      aaStat[o.aaGroup].rows.push(o);
+    } else normal.push(o);
+  });
+  // 汇总普通消费
+  const catSum = {};
+  normal.forEach(o=>{
+    if (!o.isSpend || o.net<=0) return;
+    catSum[o.cat] = (catSum[o.cat]||0) + o.net;
+  });
+  // AA组
+  const aaRows = [];
+  Object.entries(aaStat).forEach(([name, st])=>{
+    const g = RULES.aaGroups.find(x=>x.name===name);
+    const fund = g && aaFunds[name] ? aaFunds[name].funds : 0;
+    const grossIn = st.rows.reduce((s,o)=>s+o.net,0);
+    const totalGross = g&&aaFunds[name] ? aaFunds[name].gross : grossIn;
+    const cut = totalGross>0 ? fund * grossIn/totalGross : 0;   // 按窗口占比分摊回款
+    const net = Math.max(grossIn - cut, 0);
+    aaRows.push({name, rows:st.rows, net, grossIn});
+  });
+  // 非消费汇总(转账/退款/报销/中性)
+  let transfer=0, refundSum=0, reimburseSum=0;
+  spends.forEach(o=>{ refundSum += o.refund; });          // 退款合计=窗口内所有支出退款之和
+  normal.forEach(o=>{
+    if (o.isSpend) return;
+    if (o.cat==='转账') transfer += o.net;
+    else if (o.cat==='报销剔除') reimburseSum += o.rawAmt;
+  });
+  const spendTotal = Object.values(catSum).reduce((a,b)=>a+b,0) + aaRows.reduce((s,x)=>s+x.net,0);
+  return {catSum, aaRows, normal, transfer, refundSum, reimburseSum, spendTotal};
+}
+
+function render(aaFunds){
+  const spends = filteredSpends();
+  const st = compute(spends, aaFunds);
+
+  // 卡片
+  const nSpend = spends.filter(o=>o.isSpend&&!o.aaGroup&&o.net>0).length + st.aaRows.length;
+  const cards = [
+    {lb:'真实消费', vl:'¥'+fmtMoney(st.spendTotal), sm:'普通消费+AA净自付', hl:1},
+    {lb:'支出原值', vl:'¥'+fmtMoney(spends.reduce((s,o)=>s+o.rawAmt,0)), sm: spends.length+' 笔'},
+    {lb:'退款', vl:'¥'+fmtMoney(st.refundSum), sm:'已退回不计消费'},
+    {lb:'报销剔除', vl:'¥'+fmtMoney(st.reimburseSum), sm:'报销/剔除项'},
+    {lb:'转账/人情', vl:'¥'+fmtMoney(st.transfer), sm:'非消费'},
+    {lb:'AA结算', vl:'¥'+fmtMoney(st.aaRows.reduce((s,x)=>s+x.net,0)), sm:'垫付-回款 净自付'}
+  ];
+  $('cards').innerHTML = cards.map(c=>`
+    <div class="card${c.hl?' hl':''}"><div class="lb">${c.lb}</div><div class="vl">${c.vl}</div><div class="sm">${c.sm||''}</div></div>`).join('');
+
+  // 饼图
+  const pieData = {};
+  Object.entries(st.catSum).forEach(([k,v])=>pieData[k]=v);
+  st.aaRows.forEach(x=>pieData['AA·'+x.name]=x.net);
+  drawPie(pieData);
+  // 柱状图(每日)
+  drawBar(st);
+
+  // 分类汇总表
+  const rows = [];
+  Object.entries(st.catSum).sort((a,b)=>b[1]-a[1]).forEach(([k,v])=>rows.push([k, v]));
+  st.aaRows.forEach(x=>rows.push(['AA·'+x.name, x.net]));
+  const tot = rows.reduce((s,r)=>s+r[1],0);
+  $('sumTable').innerHTML = `<thead><tr><th>分类</th><th style="text-align:right">净额(元)</th><th style="text-align:right">占比</th></tr></thead>` +
+    rows.map(r=>`<tr><td><span class="pill cat">${r[0]}</span></td><td style="text-align:right">${fmtMoney(r[1])}</td><td style="text-align:right">${tot? (r[1]/tot*100).toFixed(1):'0.0'}%</td></tr>`).join('') +
+    `<tr style="font-weight:700"><td>合计</td><td style="text-align:right">${fmtMoney(tot)}</td><td style="text-align:right">100%</td></tr>`;
+
+  // 规则说明
+  const ruleTxt = [];
+  if (RULES.reimburseKw.length) ruleTxt.push('报销剔除: '+RULES.reimburseKw.join('、'));
+  RULES.aaGroups.forEach(g=>ruleTxt.push('AA结算['+g.name+']: 垫付('+g.spendKw.join('、')+') − 回款('+g.incomeKw.join('、')+')'));
+  $('ruleNote').textContent = ruleTxt.length ? '⚙️ 已启用规则: ' + ruleTxt.join('  |  ') : '';
+
+  // 明细表 + 下拉分类选项
+  renderDetail(spends);
+}
+
+function drawPie(data){
+  const labels = Object.keys(data), vals = Object.values(data);
+  const ctx = $('pieChart').getContext('2d');
+  if (charts.pie) charts.pie.destroy();
+  if (!labels.length) { charts.pie=null; return; }
+  charts.pie = new Chart(ctx, {
+    type:'doughnut',
+    data:{ labels, datasets:[{ data:vals, backgroundColor: PALETTE, borderWidth:2, borderColor:'#fff' }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{position:'right', labels:{boxWidth:12, font:{size:11}}},
+                tooltip:{ callbacks:{ label:c=>` ${c.label}: ¥${fmtMoney(c.parsed)}` } } } }
+  });
+}
+
+function drawBar(st){
+  const perDay = {};
+  const spends = filteredSpends();
+  spends.forEach(o=>{
+    if (!(o.isSpend&&!o.aaGroup) || o.net<=0) return;
+    const k = toDateStr(o.t);
+    perDay[k] = (perDay[k]||0) + o.net;
+  });
+  st.aaRows.forEach(x=>{
+    x.rows.forEach(o=>{ const k=toDateStr(o.t); perDay[k] = (perDay[k]||0) + o.net*0; });
+  });
+  const days = Object.keys(perDay).sort();
+  const ctx = $('barChart').getContext('2d');
+  if (charts.bar) charts.bar.destroy();
+  if (!days.length) { charts.bar=null; return; }
+  charts.bar = new Chart(ctx, {
+    type:'bar',
+    data:{ labels:days.map(d=>d.slice(5)), datasets:[{ label:'消费(元)', data:days.map(d=>perDay[d]), backgroundColor:'#4f7cff', borderRadius:5 }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false} },
+      scales:{ x:{ticks:{font:{size:10}, maxRotation:45}}, y:{beginAtZero:true} } }
+  });
+}
+
+function renderDetail(spends){
+  const vf = $('viewFilter').value, cf = $('catFilter').value;
+  // 刷新分类下拉(保留当前选择)
+  const cats = new Set(spends.map(o=>o.aaGroup? 'AA·'+o.aaGroup : o.cat));
+  if ($('catFilter').options.length <= 1){
+    [...cats].sort().forEach(c=>{ const op=document.createElement('option'); op.value=c; op.text=c; $('catFilter').add(op); });
+  }
+  let list = spends.filter(o=>o.net>0 || !o.isSpend);
+  if (vf==='spend') list = list.filter(o=>o.isSpend);
+  if (vf==='nonspend') list = list.filter(o=>!o.isSpend);
+  if (cf!=='all') list = list.filter(o=>(o.aaGroup? 'AA·'+o.aaGroup : o.cat)===cf);
+  list.sort((a,b)=>b.t-a.t);
+  $('cntInfo').textContent = `共 ${list.length} 笔`;
+  const esc = s=>String(s==null?'':s).replace(/</g,'&lt;');
+  $('detailTable').innerHTML = `<thead><tr><th>时间</th><th>类型</th><th>交易对方</th><th>商品</th><th>原金额</th><th>退款</th><th>净额</th><th>分类</th></tr></thead>` +
+    list.map(o=>{
+      const tag = o.aaGroup ? `<span class="pill tag-aa">AA</span>` : (o.reimbursed ? `<span class="pill tag-reimburse">报销</span>` : '');
+      const pill = o.isSpend ? '<span class="pill spend">消费</span>' : '<span class="pill nonspend">非消费</span>';
+      return `<tr>
+        <td>${o.t.getMonth()+1}-${String(o.t.getDate()).padStart(2,'0')} ${String(o.t.getHours()).padStart(2,'0')}:${String(o.t.getMinutes()).padStart(2,'0')}</td>
+        <td>${esc(o.type)}</td><td>${esc(o.peer)}</td><td>${esc(o.item)}</td>
+        <td style="text-align:right">${fmtMoney(o.rawAmt)}</td><td style="text-align:right">${o.refund>0?fmtMoney(o.refund):'-'}</td>
+        <td style="text-align:right;font-weight:600">${fmtMoney(o.net)}</td>
+        <td><span class="pill cat">${esc(o.aaGroup? 'AA·'+o.aaGroup : o.cat)}</span> ${tag} ${pill}</td>
+      </tr>`;
+    }).join('');
+}
+
+/* ---------------- 事件 ---------------- */
+$('drop').addEventListener('click', ()=>$('file').click());
+$('drop').addEventListener('dragover', e=>{e.preventDefault(); $('drop').classList.add('over');});
+$('drop').addEventListener('dragleave', ()=>$('drop').classList.remove('over'));
+$('drop').addEventListener('drop', e=>{e.preventDefault(); $('drop').classList.remove('over'); if(e.dataTransfer.files[0]) onFile(e.dataTransfer.files[0]);});
+$('file').addEventListener('change', e=>{ if(e.target.files[0]) onFile(e.target.files[0]); });
+$('btnAll').addEventListener('click', ()=>{
+  const ts=allRows.filter(r=>r.dir==='支出').map(r=>r.t.getTime());
+  if(!ts.length) return;
+  $('d0').value=toDateStr(new Date(Math.min(...ts))); $('d1').value=toDateStr(new Date(Math.max(...ts))); renderAll();
+});
+$('btnMonth').addEventListener('click', ()=>{
+  const now=new Date();
+  $('d0').value=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-01';
+  $('d1').value=toDateStr(now); renderAll();
+});
+function renderAll(){
+  // 重新计算AA基金(时间范围可能变化, 简化为用全量spends重算)
+  const spendsAll = allRows.filter(r=>r.dir==='支出');
+  const incomes = allRows.filter(r=>r.dir==='收入');
+  const aaFunds = {};
+  RULES.aaGroups.forEach(g=>{
+    const gs = spendsAll.filter(o=>o.aaGroup===g.name);
+    if(!gs.length) return;
+    const t0 = Math.min(...gs.map(o=>o.t.getTime()));
+    aaFunds[g.name] = { gross: gs.reduce((s,o)=>s+o.net,0),
+      funds: incomes.filter(i=>g.incomeKw.some(k=>i.peer.includes(k))&&i.t.getTime()>=t0).reduce((s,i)=>s+i.rawAmt,0) };
+  });
+  render(aaFunds);
+}
+$('d0').addEventListener('change', renderAll);
+$('d1').addEventListener('change', renderAll);
+$('viewFilter').addEventListener('change', ()=>renderDetail(filteredSpends()));
+$('catFilter').addEventListener('change', ()=>renderDetail(filteredSpends()));
+$('btnExport').addEventListener('click', ()=>{
+  const rows = filteredSpends().map(o=>({
+    '时间': o.t.getFullYear()+'-'+String(o.t.getMonth()+1).padStart(2,'0')+'-'+String(o.t.getDate()).padStart(2,'0')+' '+String(o.t.getHours()).padStart(2,'0')+':'+String(o.t.getMinutes()).padStart(2,'0'),
+    '交易类型': o.type, '交易对方': o.peer, '商品': o.item,
+    '原金额': o.rawAmt, '退款': o.refund||'', '净额': o.net,
+    '分类': o.aaGroup? 'AA·'+o.aaGroup : o.cat,
+    '是否消费': o.isSpend?'消费':'非消费'
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '明细');
+  XLSX.writeFile(wb, '微信账单_分析明细.xlsx');
+});
+</script>
+</body>
+</html>
