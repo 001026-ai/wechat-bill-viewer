@@ -2,8 +2,27 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>微信账单分析助手</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>账单小管家 · 微信账单消费分析</title>
+<meta name="description" content="把微信账单变成看得懂的消费报告:本地解析、自动分类、退款/报销/AA结算、消费建议与记账笔记。账单不上传,数据只留在你的设备上。">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<!-- 社交分享卡片(微信/朋友圈/Twitter 等)
+     注意: og:image / og:url 必须是绝对地址, 爬虫才能抓到。
+     如果以后换了域名, 请同步修改下面这三处 URL。 -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://001026-ai.github.io/wechat-bill-viewer/">
+<meta property="og:title" content="账单小管家 · 微信账单消费分析">
+<meta property="og:description" content="把微信账单变成看得懂的消费报告。本地解析、不上传,附消费建议与记账笔记。">
+<meta property="og:image" content="https://001026-ai.github.io/wechat-bill-viewer/assets/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="账单小管家 · 微信账单消费分析">
+<meta name="twitter:description" content="把微信账单变成看得懂的消费报告。本地解析、不上传。">
+<meta name="twitter:image" content="https://001026-ai.github.io/wechat-bill-viewer/assets/og-image.png">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='15' fill='%230071e3'/><g stroke='white' stroke-width='6' stroke-linecap='round'><path d='M18 44V30'/><path d='M28 44V20'/><path d='M38 44V34'/><path d='M48 44V25'/></g></svg>">
+<link rel="apple-touch-icon" href="assets/og-image.png">
 <!-- 本地库: 双击 index.html 即可离线使用, 无需联网无需服务器 -->
 <script src="lib/xlsx.full.min.js"></script>
 <script src="lib/chart.umd.min.js"></script>
@@ -61,52 +80,298 @@
   .tag-aa{background:#fef3c7;color:#92400e}
   .tag-reimburse{background:#fee2e2;color:#b91c1c}
   @media(max-width:760px){.grid2{grid-template-columns:1fr}.panel .chartbox{height:240px}}
+
+  /* ===================================================================
+     v2 视觉升级 — Apple 官网风格(浅色/深色跟随系统)
+     说明: 本段为追加覆盖, 上面的基础样式作为兜底保留
+     =================================================================== */
+  :root{
+    color-scheme: light dark;
+    --bg:#ffffff; --bg-alt:#f5f5f7; --card:#ffffff;
+    --ink:#1d1d1f; --sub:#6e6e73; --line:rgba(0,0,0,.12);
+    --brand:#0071e3; --brand2:#2997ff;
+    --green:#34c759; --red:#ff3b30; --amber:#ff9f0a; --violet:#af52de;
+    --shadow:0 2px 10px rgba(0,0,0,.05), 0 14px 40px rgba(0,0,0,.06);
+    --shadow-sm:0 1px 3px rgba(0,0,0,.06);
+    --r-lg:22px; --r-md:16px; --r-sm:10px;
+    --nav-h:52px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#000000; --bg-alt:#1d1d1f; --card:#1d1d1f;
+      --ink:#f5f5f7; --sub:#86868b; --line:rgba(255,255,255,.16);
+      --brand:#2997ff; --brand2:#5ac8fa;
+      --green:#30d158; --red:#ff453a; --amber:#ffd60a; --violet:#bf5af2;
+      --shadow:0 2px 10px rgba(0,0,0,.5), 0 14px 40px rgba(0,0,0,.55);
+      --shadow-sm:0 1px 3px rgba(0,0,0,.5);
+    }
+  }
+  html{scroll-behavior:smooth; -webkit-text-size-adjust:100%}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Helvetica Neue","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased; line-height:1.5;
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:0 22px}
+  a{color:var(--brand);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  /* ---------- 顶部导航(毛玻璃) ---------- */
+  .site-nav{
+    position:sticky; top:0; z-index:60; height:var(--nav-h);
+    background:color-mix(in srgb, var(--bg) 72%, transparent);
+    backdrop-filter:saturate(180%) blur(20px); -webkit-backdrop-filter:saturate(180%) blur(20px);
+    border-bottom:1px solid var(--line);
+  }
+  .nav-inner{max-width:1080px;margin:0 auto;height:100%;padding:0 22px;display:flex;align-items:center;gap:20px}
+  .nav-brand{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
+  .nav-brand:hover{text-decoration:none}
+  .nav-mark{width:24px;height:24px;border-radius:7px;background:linear-gradient(150deg,var(--brand),var(--brand2));display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px}
+  .nav-links{display:flex;gap:22px;margin-left:auto;font-size:13px}
+  .nav-links a{color:var(--sub)}
+  .nav-links a:hover{color:var(--ink);text-decoration:none}
+  @media(max-width:640px){.nav-links{display:none}}
+
+  /* ---------- 首屏 ---------- */
+  .hero{padding:84px 0 56px;text-align:center;background:
+    radial-gradient(120% 90% at 50% -20%, color-mix(in srgb, var(--brand) 12%, transparent), transparent 60%)}
+  .eyebrow{font-size:13px;font-weight:600;letter-spacing:.02em;color:var(--brand);margin-bottom:14px}
+  .display{font-size:clamp(38px,7.2vw,74px);font-weight:700;letter-spacing:-.028em;line-height:1.04;margin:0 0 18px}
+  .display .grad{background:linear-gradient(96deg,var(--brand),var(--brand2) 55%,var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .lede{font-size:clamp(17px,2.1vw,22px);color:var(--sub);max-width:640px;margin:0 auto 30px;letter-spacing:.005em}
+  .cta-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:22px}
+  .hero-note{font-size:12.5px;color:var(--sub)}
+  .hero-note b{color:var(--ink);font-weight:600}
+
+  /* ---------- 按钮(Apple 药丸) ---------- */
+  .btn{
+    border:none; border-radius:980px; padding:11px 22px; font-size:15px; font-weight:500;
+    cursor:pointer; background:color-mix(in srgb, var(--ink) 7%, transparent); color:var(--ink);
+    transition:transform .18s cubic-bezier(.2,.7,.3,1), background .18s, opacity .18s;
+    font-family:inherit;
+  }
+  .btn:hover{filter:none; background:color-mix(in srgb, var(--ink) 12%, transparent)}
+  .btn:active{transform:scale(.97)}
+  .btn.primary{background:var(--brand); color:#fff}
+  .btn.primary:hover{background:color-mix(in srgb, var(--brand) 88%, #fff)}
+  .btn.big{padding:14px 30px; font-size:16px}
+
+  /* ---------- 区块 ---------- */
+  .block{padding:64px 0}
+  .block.alt{background:var(--bg-alt)}
+  .section-head{max-width:720px;margin:0 auto 34px;text-align:center}
+  .section-head h2{font-size:clamp(26px,3.6vw,40px);font-weight:700;letter-spacing:-.022em;line-height:1.12;margin-bottom:12px}
+  .section-head p{font-size:16.5px;color:var(--sub)}
+  .reveal{opacity:0;transform:translateY(26px);transition:opacity .8s cubic-bezier(.2,.7,.3,1),transform .8s cubic-bezier(.2,.7,.3,1)}
+  .reveal.in{opacity:1;transform:none}
+  @media (prefers-reduced-motion: reduce){.reveal{opacity:1;transform:none;transition:none}}
+
+  /* ---------- 上传区 ---------- */
+  .drop{
+    background:var(--card); border:1.5px dashed var(--line); border-radius:var(--r-lg);
+    padding:52px 22px; text-align:center; cursor:pointer; transition:.25s;
+    box-shadow:var(--shadow-sm);
+  }
+  .drop:hover,.drop.over{border-color:var(--brand); background:color-mix(in srgb, var(--brand) 4%, var(--card)); transform:translateY(-2px)}
+  .drop .big{font-size:38px}
+  .drop .t1{font-size:17px;font-weight:600;margin-top:10px;letter-spacing:-.01em}
+  .drop .t2{font-size:12.5px;color:var(--sub);margin-top:6px;max-width:560px;margin-left:auto;margin-right:auto}
+
+  /* ---------- 工具栏 / 卡片 / 面板 ---------- */
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:22px 0 18px}
+  .toolbar label{font-size:13px;color:var(--sub)}
+  .toolbar input[type=date]{
+    border:1px solid var(--line); border-radius:980px; padding:8px 14px; font-size:13.5px;
+    background:var(--card); color:var(--ink); font-family:inherit;
+  }
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:14px;margin:8px 0 22px}
+  .card{
+    background:var(--card); border-radius:var(--r-md); padding:18px;
+    border:1px solid var(--line); box-shadow:var(--shadow-sm);
+  }
+  .card .lb{font-size:12.5px;color:var(--sub);letter-spacing:.01em}
+  .card .vl{font-size:25px;font-weight:700;margin-top:5px;letter-spacing:-.02em}
+  .card .sm{font-size:11.5px;color:var(--sub);margin-top:4px}
+  .card.hl{
+    background:linear-gradient(150deg,#0071e3,#2997ff 60%,#5ac8fa);
+    color:#fff;border:none;box-shadow:0 10px 30px color-mix(in srgb, var(--brand) 32%, transparent);
+  }
+  .card.hl .lb,.card.hl .sm{color:rgba(255,255,255,.85)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px}
+  .panel{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);
+    padding:20px;box-shadow:var(--shadow-sm);
+  }
+  .panel h3{font-size:16px;font-weight:600;margin-bottom:12px;letter-spacing:-.01em}
+  .panel .chartbox{position:relative;height:300px}
+  .full{grid-column:1/-1}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:10px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+  th{color:var(--sub);font-weight:600;background:transparent;position:sticky;top:0;backdrop-filter:blur(8px)}
+  tbody tr:hover, table tr:hover{background:color-mix(in srgb, var(--ink) 3%, transparent)}
+  .tabwrap{overflow:auto;max-height:520px;-webkit-overflow-scrolling:touch}
+  .pill{display:inline-block;border-radius:980px;padding:2px 10px;font-size:11.5px;font-weight:600;letter-spacing:.01em}
+  .pill.spend{background:color-mix(in srgb, var(--green) 16%, transparent);color:#0b8a5f}
+  .pill.nonspend{background:color-mix(in srgb, var(--ink) 8%, transparent);color:var(--sub)}
+  .pill.cat{background:color-mix(in srgb, var(--brand) 13%, transparent);color:var(--brand)}
+  @media (prefers-color-scheme: dark){
+    .pill.spend{color:#5ee0a0}
+    .pill.cat{color:var(--brand2)}
+  }
+  .tag-aa{background:color-mix(in srgb, var(--amber) 22%, transparent);color:#8a6100}
+  .tag-reimburse{background:color-mix(in srgb, var(--red) 16%, transparent);color:#b3261e}
+  @media (prefers-color-scheme: dark){
+    .tag-aa{color:#ffd60a} .tag-reimburse{color:#ff8a80}
+  }
+  .filters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;align-items:center}
+  .filters select{
+    border:1px solid var(--line);border-radius:980px;padding:7px 13px;font-size:13px;
+    background:var(--card);color:var(--ink);font-family:inherit;
+  }
+  .rules-note{font-size:12.5px;color:var(--sub);background:var(--bg-alt);border-radius:var(--r-sm);padding:10px 14px;margin-top:12px;line-height:1.7}
+  code{background:color-mix(in srgb, var(--ink) 8%, transparent);border-radius:5px;padding:1px 6px;font-size:12px}
+  details.acc{border-bottom:1px solid var(--line);padding:16px 0}
+  details.acc summary{cursor:pointer;font-size:16px;font-weight:600;letter-spacing:-.01em;list-style:none;display:flex;justify-content:space-between;align-items:center}
+  details.acc summary::-webkit-details-marker{display:none}
+  details.acc summary::after{content:'＋';color:var(--sub);font-weight:400}
+  details.acc[open] summary::after{content:'－'}
+  details.acc .acc-body{padding-top:12px;font-size:14.5px;color:var(--sub);line-height:1.75}
+
+  /* ---------- 消费建议 ---------- */
+  .advice-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+  .advice{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);
+    padding:22px;box-shadow:var(--shadow-sm);transition:transform .25s, box-shadow .25s;
+  }
+  .advice:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
+  .advice .ico{font-size:22px;margin-bottom:10px}
+  .advice h4{font-size:16.5px;font-weight:650;margin-bottom:8px;letter-spacing:-.01em}
+  .advice p{font-size:14px;color:var(--sub);line-height:1.72}
+  .advice .num{font-weight:700;color:var(--ink)}
+  .advice .src{margin-top:12px;font-size:11.5px;color:var(--sub);border-top:1px solid var(--line);padding-top:10px}
+  .advice.warn{border-left:3px solid var(--amber)}
+  .advice.good{border-left:3px solid var(--green)}
+  .advice.tip{border-left:3px solid var(--brand)}
+
+  /* ---------- 消费笔记 ---------- */
+  .notes-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:24px;box-shadow:var(--shadow-sm)}
+  .notes-prompts{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+  .chip{
+    border:1px solid var(--line);background:transparent;color:var(--sub);
+    border-radius:980px;padding:7px 14px;font-size:12.5px;cursor:pointer;font-family:inherit;transition:.2s;
+  }
+  .chip:hover{color:var(--ink);border-color:var(--ink)}
+  textarea.notes{
+    width:100%;min-height:190px;border:1px solid var(--line);border-radius:var(--r-md);
+    padding:16px;font-size:14.5px;line-height:1.8;background:var(--bg);color:var(--ink);
+    font-family:inherit;resize:vertical;
+  }
+  textarea.notes:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px color-mix(in srgb, var(--brand) 18%, transparent)}
+  .notes-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px}
+  .notes-status{font-size:12.5px;color:var(--green)}
+
+  /* ---------- 关于 / 页脚 ---------- */
+  .about-list{max-width:760px;margin:0 auto}
+  .site-footer{background:var(--bg-alt);padding:44px 0 60px;font-size:12.5px;color:var(--sub)}
+  .site-footer .wrap{display:grid;gap:22px}
+  .foot-top{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between}
+  .foot-brand{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:600;color:var(--ink)}
+  .foot-links{display:flex;flex-wrap:wrap;gap:18px}
+  .foot-links a{color:var(--sub)}
+  .foot-legal{border-top:1px solid var(--line);padding-top:18px;line-height:1.9}
+  .foot-legal b{color:var(--ink);font-weight:600}
+  .badge-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  .badge{font-size:11.5px;border:1px solid var(--line);border-radius:980px;padding:4px 11px;color:var(--sub)}
+  @media(max-width:760px){
+    .grid2{grid-template-columns:1fr}.panel .chartbox{height:240px}
+    .hero{padding:56px 0 40px}.block{padding:44px 0}
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div class="logo">🧾</div>
-    <div>
-      <h1>微信账单分析助手</h1>
-      <p>本地隐私分析 · 消费分类 · 报销与AA结算</p>
+
+<!-- ===================== 顶部导航 ===================== -->
+<nav class="site-nav">
+  <div class="nav-inner">
+    <a class="nav-brand" href="#top">
+      <span class="nav-mark">📊</span>
+      <span id="brandName">账单小管家</span>
+    </a>
+    <div class="nav-links">
+      <a href="#analyze">账单分析</a>
+      <a href="#advice">消费建议</a>
+      <a href="#notes">消费笔记</a>
+      <a href="#about">关于</a>
     </div>
-  </header>
-
-  <div class="privacy">🔒 <b>隐私承诺:</b> 账单文件只在您的浏览器里解析, 不会上传到任何服务器, 可放心发给好友使用(对方导入的是自己的账单)。</div>
-
-  <!-- 上传区 -->
-  <div class="drop" id="drop">
-    <div class="big">📁</div>
-    <div class="t1">点击选择 / 拖拽微信账单文件到此处</div>
-    <div class="t2">支持: 微信支付账单流水文件 .xlsx / .csv / .zip(压缩包会自动解压读取)· 从微信"钱包-账单-下载账单"导出</div>
   </div>
-  <input type="file" id="file" accept=".xlsx,.xls,.csv,.zip" style="display:none">
+</nav>
 
-  <div style="text-align:center;margin:12px 0 4px">
-    <button class="btn" id="btnDemo">🎬 没有账单?先用示例数据试用</button>
-  </div>
-
-  <div id="result" style="display:none">
-    <!-- 筛选工具栏 -->
-    <div class="toolbar">
-      <label>📅 从</label><input type="date" id="d0">
-      <label>到</label><input type="date" id="d1">
-      <button class="btn" id="btnAll">整个区间</button>
-      <button class="btn" id="btnMonth">本月</button>
-      <span style="flex:1"></span>
-      <button class="btn" id="btnReport">🖼️ 生成分享长图</button>
-      <button class="btn primary" id="btnExport">⬇ 导出明细CSV</button>
+<!-- ===================== 首屏 ===================== -->
+<header class="hero" id="top">
+  <div class="wrap">
+    <div class="eyebrow">本地解析 · 数据不上传</div>
+    <h1 class="display">把微信账单<br>变成你看得懂的<span class="grad">消费报告</span></h1>
+    <p class="lede">自动分类、退款与报销核对、AA 结算、消费建议与记账笔记 —— 全部在你的浏览器里完成,账单文件不会离开这台设备。</p>
+    <div class="cta-row">
+      <button class="btn primary big" id="btnHeroPick">选择账单文件</button>
+      <button class="btn big" id="btnHeroDemo">先看示例效果</button>
     </div>
+    <div class="hero-note">支持 <b>.xlsx</b> / <b>.csv</b> / <b>.zip</b> · 从微信「我 → 服务 → 钱包 → 账单 → 下载账单」导出</div>
+  </div>
+</header>
+
+<!-- ===================== 账单分析 ===================== -->
+<section class="block" id="analyze">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <h2>上传账单,立刻看到结果</h2>
+      <p>拖进来就行。压缩包会自动解压,退款按净额计算,被报销的和 AA 垫付的都能扣掉。</p>
+    </div>
+
+    <!-- 上传区 -->
+    <div class="drop reveal" id="drop">
+      <div class="big">📁</div>
+      <div class="t1">点击选择 / 拖拽微信账单文件到此处</div>
+      <div class="t2">支持: .xlsx / .csv / .zip(压缩包自动解压读取)· 从微信"钱包-账单-下载账单"导出</div>
+    </div>
+    <input type="file" id="file" accept=".xlsx,.xls,.csv,.zip" style="display:none">
+
+    <div style="text-align:center;margin:16px 0 6px">
+      <button class="btn" id="btnDemo">🎬 没有账单?先用示例数据试用</button>
+    </div>
+
+    <div id="result" style="display:none">
+      <!-- 筛选工具栏 -->
+      <div class="toolbar">
+        <label>📅 从</label><input type="date" id="d0">
+        <label>到</label><input type="date" id="d1">
+        <button class="btn" id="btnAll">整个区间</button>
+        <button class="btn" id="btnMonth">本月</button>
+        <span style="flex:1"></span>
+        <button class="btn" id="btnReport">🖼️ 分享长图</button>
+        <button class="btn primary" id="btnExport">⬇ 导出明细</button>
+      </div>
 
     <!-- 规则设置(可折叠) -->
     <details class="panel" id="rulePanel" style="margin-bottom:12px">
       <summary style="cursor:pointer;font-size:14px;font-weight:600">⚙️ 规则设置(报销剔除 / AA 结算) — 点开可改</summary>
       <div style="margin-top:12px;display:grid;gap:10px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <div class="lb" style="font-size:12px;color:var(--sub);margin-bottom:4px">网站名称(显示在导航与页脚)</div>
+            <input type="text" id="siteNameInput" placeholder="账单小管家"
+                   style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:13px;background:var(--card);color:var(--ink)">
+          </div>
+          <div>
+            <div class="lb" style="font-size:12px;color:var(--sub);margin-bottom:4px">联系邮箱(显示在页脚)</div>
+            <input type="text" id="siteMailInput" placeholder="hello@example.com"
+                   style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:13px;background:var(--card);color:var(--ink)">
+          </div>
+        </div>
         <div>
           <div class="lb" style="font-size:12px;color:var(--sub);margin-bottom:4px">报销剔除关键词(逗号分隔, 命中则整笔不算消费)</div>
           <input type="text" id="reimburseInput" placeholder="例如: 摩天轮, 培训费"
-                 style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:13px">
+                 style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:13px;background:var(--card);color:var(--ink)">
         </div>
         <div>
           <div class="lb" style="font-size:12px;color:var(--sub);margin-bottom:4px">
@@ -165,23 +430,143 @@
       </div>
       <div class="tabwrap"><table id="detailTable"></table></div>
     </div>
+    </div><!-- /result -->
   </div>
+</section>
 
-  <footer>数据仅在本地处理 · 规则移植自 dsh/WeChatBill · 部署后可微信内直接使用 · <span id="verTag">版本读取中…</span></footer>
-</div>
+<!-- ===================== 消费建议 ===================== -->
+<section class="block alt" id="advice">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <h2>不是记完账就结束,而是看清钱去哪了</h2>
+      <p>下面的建议会根据你的账单自动生成,背后的观念来自几本经典的理财启蒙书 —— 我们用自己的话讲清楚,你可以照着做。</p>
+    </div>
+    <div class="advice-grid" id="adviceGrid">
+      <div class="advice tip">
+        <div class="ico">💡</div>
+        <h4>先上传账单,建议会更具体</h4>
+        <p>上传后这里会显示针对你的个性化建议(餐饮占比、小额高频支出、大额支出集中度……)。现在也可以先往下读读这些观念。</p>
+      </div>
+    </div>
+
+    <div class="section-head reveal" style="margin-top:56px">
+      <h2 style="font-size:clamp(22px,3vw,30px)">理财启蒙知识库</h2>
+      <p>这些概念不是"省钱技巧",而是看待金钱的方式。点开看看哪一条戳中你。</p>
+    </div>
+    <div class="about-list" id="kbList"></div>
+  </div>
+</section>
+
+<!-- ===================== 消费笔记 ===================== -->
+<section class="block" id="notes">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <h2>消费笔记</h2>
+      <p>写下"这笔钱花得值不值"。记账的真正价值,是让你在下一次掏钱前多想三秒。</p>
+    </div>
+    <div class="notes-card reveal">
+      <div class="notes-prompts" id="notePrompts"></div>
+      <textarea class="notes" id="notesArea" placeholder="例如:&#10;· 本月最值的一笔:____,因为____&#10;· 最后悔的一笔:____,下次可以改成____&#10;· 下月目标:外卖不超过 __ 次,先把 __ 元存起来"></textarea>
+      <div class="notes-actions">
+        <button class="btn primary" id="btnNoteSave">保存笔记</button>
+        <button class="btn" id="btnNoteExport">导出笔记</button>
+        <button class="btn" id="btnNoteClear">清空</button>
+        <span class="notes-status" id="noteStatus"></span>
+        <span style="font-size:12px;color:var(--sub);margin-left:auto">仅保存在本机浏览器,不上传</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 关于 ===================== -->
+<section class="block alt" id="about">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <h2>关于这个小工具</h2>
+      <p>它只做一件事:把你自己的账单,算清楚给你看。</p>
+    </div>
+    <div class="about-list reveal">
+      <details class="acc" open>
+        <summary>它是什么</summary>
+        <div class="acc-body">
+          一个纯前端的微信账单分析工具。上传账单后,自动完成消费分类、退款净额核对、报销剔除、AA 结算,
+          并给出图表、消费建议与记账笔记。所有计算都在你的浏览器里完成。
+        </div>
+      </details>
+      <details class="acc">
+        <summary>隐私:数据去哪了?</summary>
+        <div class="acc-body">
+          <b>哪里都没去。</b>账单文件由浏览器本地读取和解析,不上传到任何服务器,我们不收集、不存储、不传输你的任何账单数据。
+          规则与笔记保存在你本机的浏览器存储(localStorage)里,清除浏览器数据即消失,换设备也不会同步。
+        </div>
+      </details>
+      <details class="acc">
+        <summary>免责声明</summary>
+        <div class="acc-body">
+          本工具与腾讯公司及微信官方<b>无任何关联</b>,也非其授权产品;"微信"仅为说明账单来源的客观描述。
+          工具内的消费建议与理财观念属于<b>一般性科普信息,不构成投资、税务或法律建议</b>,
+          请结合自身情况独立判断,必要时咨询专业人士。因使用本工具产生的任何决策与后果,由使用者自行承担。
+        </div>
+      </details>
+      <details class="acc">
+        <summary>使用条款 / 商用说明</summary>
+        <div class="acc-body">
+          个人可免费使用本工具分析自己的账单。<b>如需商业用途</b>(例如嵌入你的产品、对外提供服务、商业培训等),
+          请先取得授权并保留出处署名。工具内引用的书名、作者仅用于说明观念来源,相关内容为原创转述,
+          不含原书文字段落;书名与观点的著作权归原作者及出版方所有。
+        </div>
+      </details>
+      <details class="acc">
+        <summary>怎么改规则、怎么反馈</summary>
+        <div class="acc-body">
+          分类规则、报销关键词、商户固定分类、AA 分组都可以在「账单分析」里的
+          <code>⚙️ 规则设置</code> 面板直接修改,保存后立即生效,不需要改代码。
+          想反馈问题或建议,可通过下方邮箱联系。
+        </div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 页脚 ===================== -->
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="foot-top">
+      <div class="foot-brand"><span class="nav-mark">📊</span><span class="footBrandName">账单小管家</span></div>
+      <div class="foot-links">
+        <a href="#analyze">账单分析</a>
+        <a href="#advice">消费建议</a>
+        <a href="#notes">消费笔记</a>
+        <a href="#about">关于</a>
+        <a href="mailto:hello@example.com" id="footMail">联系我们</a>
+      </div>
+    </div>
+    <div class="badge-row">
+      <span class="badge">本地解析 · 不上传</span>
+      <span class="badge">开源前端 · 无后端</span>
+      <span class="badge" id="verTag">版本读取中…</span>
+    </div>
+    <div class="foot-legal">
+      <b>版权与署名</b>:© <span id="yearNow">2026</span> <span class="footBrandName">账单小管家</span> · 保留所有权利。<br>
+      <b>非官方声明</b>:本工具与腾讯公司及微信官方无任何关联,非其授权或认可的产品。<br>
+      <b>免责声明</b>:页面内消费建议与理财观念为一般性科普信息,不构成投资建议;请独立判断并自担决策风险。<br>
+      <b>隐私</b>:账单与笔记全部在本机浏览器处理,不上传服务器、不收集个人信息。
+    </div>
+  </div>
+</footer>
 
 <!-- 分享长图预览弹窗 -->
-<div id="reportModal" style="display:none;position:fixed;inset:0;background:rgba(17,24,39,.72);z-index:99;overflow:auto;padding:16px">
-  <div style="max-width:760px;margin:0 auto;background:#fff;border-radius:14px;padding:14px">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+<div id="reportModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.66);backdrop-filter:blur(6px);z-index:99;overflow:auto;padding:16px">
+  <div style="max-width:760px;margin:0 auto;background:var(--card);color:var(--ink);border-radius:20px;padding:16px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
       <b style="font-size:15px">🖼️ 消费报告长图</b>
       <span style="font-size:12px;color:var(--sub)">手机可长按图片保存 · 发微信/朋友圈</span>
       <span style="flex:1"></span>
       <button class="btn primary" id="btnReportSave">⬇ 保存图片</button>
       <button class="btn" id="btnReportClose">✕ 关闭</button>
     </div>
-    <div style="text-align:center;background:#f7f9fc;border-radius:10px;padding:8px">
-      <img id="reportImg" alt="消费报告" style="max-width:100%;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,.08)">
+    <div style="text-align:center;background:var(--bg-alt);border-radius:14px;padding:10px">
+      <img id="reportImg" alt="消费报告" style="max-width:100%;border-radius:10px;box-shadow:0 2px 16px rgba(0,0,0,.12)">
     </div>
   </div>
 </div>
@@ -193,7 +578,7 @@
  * ========================================================= */
 
 /* 版本号: 改动本文件后请同步修改, 页面底部会显示, 便于确认线上是不是最新版 */
-const APP_VERSION = '1.4';
+const APP_VERSION = '2.0';
 
 /* ---------------- 规则区(默认值; 页面上也可直接改, 会记在浏览器里) ---------------- */
 const DEFAULT_RULES = {
@@ -235,6 +620,12 @@ function rulesToInputs(){
     g.name + ' | ' + g.spendKw.join(',') + ' | ' + g.incomeKw.join(',')).join('\n');
 }
 function inputsToRules(){
+  // 站点信息(名称/邮箱)
+  if ($('siteNameInput')){
+    SITE.name = $('siteNameInput').value.trim() || DEFAULT_SITE.name;
+    SITE.mail = $('siteMailInput').value.trim() || DEFAULT_SITE.mail;
+    saveSite(); applySite();
+  }
   RULES.reimburseKw = $('reimburseInput').value.split(/[,，\s]+/).map(s=>s.trim()).filter(Boolean);
   // 商户固定分类: 每行 "商户关键词 | 分类"
   const mc = {};
@@ -562,6 +953,7 @@ function render(aaFunds){
 
   // 明细表 + 下拉分类选项
   renderDetail(spends);
+  buildAdvice();          // 同步刷新消费建议(与当前筛选区间一致)
 }
 
 function drawPie(data){
@@ -783,7 +1175,228 @@ function buildReportImage(){
 }
 
 
+/* =========================================================
+ *  站点信息(可自定义, 存本机)
+ * ========================================================= */
+const DEFAULT_SITE = { name: '账单小管家', mail: 'hello@example.com' };
+let SITE = Object.assign({}, DEFAULT_SITE);
+function loadSite(){
+  try{ const s = localStorage.getItem('wxbill_site'); if (s) SITE = Object.assign({}, DEFAULT_SITE, JSON.parse(s)); }catch(e){}
+}
+function saveSite(){
+  try{ localStorage.setItem('wxbill_site', JSON.stringify(SITE)); }catch(e){}
+}
+function applySite(){
+  $('brandName').textContent = SITE.name;
+  const y = $('yearNow'); if (y) y.textContent = new Date().getFullYear();
+  const m = $('footMail');
+  if (m){ m.href = 'mailto:' + SITE.mail; m.textContent = (SITE.mail && SITE.mail !== DEFAULT_SITE.mail) ? SITE.mail : '联系我们'; }
+  // 页脚品牌名(可能有多处)
+  const nodes = document.querySelectorAll ? document.querySelectorAll('.footBrandName') : [];
+  for (let i=0;i<nodes.length;i++) nodes[i].textContent = SITE.name;
+  document.title = SITE.name + ' · 微信账单消费分析';
+}
+
+/* =========================================================
+ *  理财启蒙知识库 —— 原创转述, 用于说明观念来源(不含原书文字)
+ * ========================================================= */
+const KB = [
+  { book:'《小狗钱钱》', author:'博多·舍费尔', items:[
+    { t:'养一只会下蛋的"鹅"', d:'把本金想成一只鹅,利息是它下的蛋。为了买东西把鹅杀掉,以后就再也没有蛋了 —— 所以先攒出一笔"不动用"的本金,再谈消费。' },
+    { t:'梦想储蓄罐', d:'为一个具体目标(旅行、相机、课程)单独存钱,并把目标写下来、看得见。目标越具体,越容易在"想买别的"时忍住。' },
+    { t:'72 小时法则', d:'想做的事,如果 72 小时内不开始,大概率永远不会开始。理财也是 —— 现在就设一笔自动转存,比"下个月开始"有用得多。' }
+  ]},
+  { book:'《财务自由之路》', author:'博多·舍费尔', items:[
+    { t:'先支付自己', d:'收入到账时,先把要存的那部分转走,剩下的才是可花的钱。而不是月底看剩下多少再存 —— 那样通常剩不下。' },
+    { t:'储蓄比例随收入提高', d:'加薪或收到额外收入时,让储蓄比例跟着提高,而不是让开销跟着涨。这一步能避免"赚得越多花得越多"。' }
+  ]},
+  { book:'《富爸爸穷爸爸》', author:'罗伯特·清崎', items:[
+    { t:'资产与负债的区别', d:'判断标准很简单:它往你口袋里放钱,还是从你口袋里拿钱?自用消费品大多是负债,能带来收入或省下长期开支的才是资产。' },
+    { t:'重要的不是赚多少,而是留下多少', d:'收入高不等于财务状况好。真正决定结果的是"收入减去支出"的差额,以及这个差额被拿去做了什么。' }
+  ]},
+  { book:'《邻家的百万富翁》', author:'托马斯·斯坦利', items:[
+    { t:'财富是差额积累出来的', d:'对多数人来说,财富来自长期"收入大于支出"的积累,而不是某一次高收入。稳定的小差额,比偶尔的大额更可靠。' },
+    { t:'不必用消费证明自己', d:'看起来有钱和真的有钱是两件事。把支出从"给别人看"转向"让自己舒服、让未来更稳",口袋会明显变厚。' }
+  ]},
+  { book:'《自动百万富翁》', author:'大卫·巴赫', items:[
+    { t:'拿铁因子', d:'每天一杯奶茶、几次小额扫码,单笔不起眼,但一年下来往往是一笔大数目。把"小额高频"找出来,是最容易见效的省钱入口。' },
+    { t:'让储蓄自动化', d:'靠意志力省钱很难,靠机制省钱很容易。设定自动转存,让"存钱"变成不需要每天决定的事。' }
+  ]},
+  { book:'《穷查理宝典》', author:'查理·芒格', items:[
+    { t:'逆向思考', d:'与其问"怎么变富",不如问"什么行为一定会让我变穷"—— 然后避开它们:冲动消费、高息负债、不懂就投、频繁折腾。' },
+    { t:'耐心与复利', d:'复利需要时间发挥作用。长期、稳定、不中断,往往比追求高收益更重要。' }
+  ]},
+  { book:'通用理财常识', author:'常见方法', items:[
+    { t:'50 / 30 / 20 法则', d:'一个粗略好用的分配参考:必要支出约 50%、想要的东西约 30%、储蓄与投资约 20%。比例可按你的实际情况调整,重点是"储蓄那一份不能被挤掉"。' },
+    { t:'应急基金', d:'先攒出 3~6 个月的基本生活费放在随取的地方,用来对付突发状况。有了它,你才不会因为一次意外而背上高息负债。' },
+    { t:'记账的真正作用', d:'记账不是自我审判,而是让"隐形消费"变显形。看清之后,你会发现最该改的往往只是两三个习惯。' }
+  ]}
+];
+
+function renderKB(){
+  const el = $('kbList'); if (!el) return;
+  el.innerHTML = KB.map(group => `
+    <details class="acc">
+      <summary>${group.book} · ${group.author}</summary>
+      <div class="acc-body">
+        ${group.items.map(it=>`<p style="margin-bottom:12px"><b style="color:var(--ink)">${it.t}</b><br>${it.d}</p>`).join('')}
+      </div>
+    </details>`).join('');
+}
+
+/* =========================================================
+ *  消费建议 —— 根据账单数据生成, 每条都指向一个观念来源
+ * ========================================================= */
+function buildAdvice(){
+  const el = $('adviceGrid'); if (!el) return;
+  const spends = filteredSpends();
+  const st = compute(spends, computeAaFunds());
+  const total = st.spendTotal;
+  const out = [];
+  const money = n => '¥' + fmtMoney(n);
+  const pct = (a,b) => b>0 ? (a/b*100) : 0;
+
+  if (!spends.length || total <= 0){
+    el.innerHTML = `<div class="advice tip"><div class="ico">💡</div><h4>先上传账单,建议会更具体</h4>
+      <p>上传后这里会显示针对你的个性化建议(餐饮占比、小额高频支出、大额集中度……)。现在也可以往下读读这些观念。</p></div>`;
+    return;
+  }
+
+  // 1) 小额高频(拿铁因子)
+  const small = spends.filter(o=>o.isSpend && o.net>0 && o.net<=20);
+  const smallSum = small.reduce((s,o)=>s+o.net,0);
+  if (small.length && pct(smallSum,total) >= 12){
+    out.push({cls:'warn', ico:'☕️', h:'小额高频支出值得盯一眼',
+      p:`你有 <span class="num">${small.length}</span> 笔 20 元以内的消费,合计 <span class="num">${money(smallSum)}</span>,占真实消费的 <span class="num">${pct(smallSum,total).toFixed(1)}%</span>。
+         按这个节奏,一年大约是 <span class="num">${money(smallSum*12)}</span>。少其中三成,一年就能多留下 ${money(smallSum*12*0.3)}。`,
+      src:'观念来源:《自动百万富翁》— 拿铁因子'});
+  }
+
+  // 2) 餐饮占比
+  const food = st.catSum['餐饮'] || 0;
+  if (pct(food,total) >= 25){
+    out.push({cls:'warn', ico:'🍜', h:'餐饮占了不小的比例',
+      p:`餐饮 <span class="num">${money(food)}</span>,占 <span class="num">${pct(food,total).toFixed(1)}%</span>。
+         外卖和饮料往往可以"每两周少两次"这样温和地减,不必一刀切。`,
+      src:'观念来源:《小狗钱钱》— 梦想储蓄罐'});
+  }
+
+  // 3) 最大单笔
+  const spendOnly = spends.filter(o=>o.isSpend && !o.aaGroup && o.net>0);
+  if (spendOnly.length){
+    const top = spendOnly.slice().sort((a,b)=>b.net-a.net)[0];
+    if (pct(top.net, total) >= 25){
+      out.push({cls:'tip', ico:'🔍', h:'有一笔支出占比偏高',
+        p:`最大一笔是 <span class="num">${money(top.net)}</span>(${top.peer||'—'}),占真实消费 <span class="num">${pct(top.net,total).toFixed(1)}%</span>。
+           这类支出通常不是"习惯问题",而是"决定问题" —— 下次做同类决定前,多给自己一天时间。`,
+        src:'观念来源:《穷查理宝典》— 逆向思考'});
+    }
+  }
+
+  // 4) 购物占比
+  const shop = st.catSum['购物'] || 0;
+  if (pct(shop,total) >= 25){
+    out.push({cls:'warn', ico:'🛍️', h:'购物类支出比较集中',
+      p:`购物 <span class="num">${money(shop)}</span>,占 <span class="num">${pct(shop,total).toFixed(1)}%</span>。
+         买之前问一句:它往我口袋里放钱,还是从我口袋里拿钱?想清楚这笔是"需要"还是"想要",再下单。`,
+      src:'观念来源:《富爸爸穷爸爸》— 资产与负债'});
+  }
+
+  // 5) 退款提醒
+  const refundRows = spends.filter(o=>o.refund > 0);
+  if (refundRows.length >= 2){
+    const rs = refundRows.reduce((s,o)=>s+o.refund,0);
+    out.push({cls:'tip', ico:'↩️', h:'退款别当成"没花钱"',
+      p:`本期有 <span class="num">${refundRows.length}</span> 笔退款,合计 <span class="num">${money(rs)}</span>。
+         退款是回血,不是收入 —— 它不该变成下一笔消费的"额度"。`,
+      src:'观念来源:《财务自由之路》— 收入与支出要分清'});
+  }
+
+  // 6) AA 与结算(正向反馈)
+  if (st.aaRows.length){
+    const aaNet = st.aaRows.reduce((s,x)=>s+x.net,0);
+    out.push({cls:'good', ico:'🤝', h:'AA 算得清楚是好事',
+      p:`本期有 <span class="num">${st.aaRows.length}</span> 组垫付结算,你实际净自付 <span class="num">${money(aaNet)}</span>。
+         把人情和消费分开记,账才不会越滚越糊。`,
+      src:'观念来源:《邻家的百万富翁》— 财富来自差额'});
+  }
+
+  // 7) 储蓄建议(具体数字)
+  const saveSuggest = Math.round(total * 0.2);
+  out.push({cls:'tip', ico:'🐣', h:'先支付自己:给这笔钱留个位置',
+    p:`按本期真实消费 <span class="num">${money(total)}</span> 估算,如果把 20% 先存起来,大约是 <span class="num">${money(saveSuggest)}</span>/期。
+       建议设一个自动转存,发钱当天就转走 —— 剩下的才是可花的。`,
+    src:'观念来源:《小狗钱钱》养"鹅" + 《财务自由之路》先支付自己'});
+
+  // 8) 应急金
+  const monthly = total;
+  out.push({cls:'tip', ico:'🛟', h:'应急金是底气',
+    p:`按本期支出推算,3~6 个月的基本生活费大约是 <span class="num">${money(monthly*3)} ~ ${money(monthly*6)}</span>。
+       这笔钱放在随时能取的地方,作用是让你在突发状况下不必借高息的钱。`,
+    src:'通用理财常识 — 应急基金'});
+
+  el.innerHTML = out.map(a=>`
+    <div class="advice ${a.cls}">
+      <div class="ico">${a.ico}</div>
+      <h4>${a.h}</h4>
+      <p>${a.p}</p>
+      <div class="src">${a.src}</div>
+    </div>`).join('');
+}
+
+/* =========================================================
+ *  消费笔记(本机保存 + 导出)
+ * ========================================================= */
+const NOTE_KEY = 'wxbill_notes';
+const NOTE_PROMPTS = [
+  '本月最值的一笔是____,因为____',
+  '最后悔的一笔是____,下次改成____',
+  '下月目标:____ 不超过 ____ 次',
+  '我发现自己最容易在____的时候乱花钱',
+  '这个月我想先存下 ____ 元'
+];
+function renderPrompts(){
+  const el = $('notePrompts'); if (!el) return;
+  el.innerHTML = NOTE_PROMPTS.map(t=>`<button class="chip" data-t="${t.replace(/"/g,'&quot;')}">＋ ${t.length>16?t.slice(0,16)+'…':t}</button>`).join('');
+}
+function loadNotes(){ try{ $('notesArea').value = localStorage.getItem(NOTE_KEY) || ''; }catch(e){} }
+function saveNotes(silent){
+  try{
+    localStorage.setItem(NOTE_KEY, $('notesArea').value);
+    if (!silent){ $('noteStatus').textContent = '✅ 已保存到本机'; setTimeout(()=>{ $('noteStatus').textContent=''; }, 2200); }
+  }catch(e){ if(!silent) $('noteStatus').textContent = '保存失败(浏览器存储不可用)'; }
+}
+function exportNotes(){
+  const txt = $('notesArea').value || '';
+  if (!txt.trim()){ alert('还没有内容可以导出'); return; }
+  const head = SITE.name + ' 消费笔记\n导出时间: ' + new Date().toLocaleString('zh-CN') + '\n\n';
+  const blob = new Blob([head + txt], {type:'text/plain;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '消费笔记.txt';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+}
+
+/* =========================================================
+ *  图表主题(跟随深浅色)
+ * ========================================================= */
+function applyChartTheme(){
+  if (!window.Chart) return;
+  const dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  Chart.defaults.color = dark ? '#86868b' : '#6e6e73';
+  Chart.defaults.borderColor = dark ? 'rgba(255,255,255,.10)' : 'rgba(0,0,0,.07)';
+  Chart.defaults.font.family = '-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif';
+}
+
 /* ---------------- 事件 ---------------- */
+/* 首屏按钮 */
+$('btnHeroPick').addEventListener('click', ()=>$('file').click());
+$('btnHeroDemo').addEventListener('click', ()=>{
+  loadDemo();
+  const y = $('analyze').getBoundingClientRect ? $('analyze').getBoundingClientRect().top + window.pageYOffset - 60 : 0;
+  window.scrollTo({top:y, behavior:'smooth'});
+});
 $('btnDemo').addEventListener('click', loadDemo);
 $('drop').addEventListener('click', ()=>$('file').click());
 $('drop').addEventListener('dragover', e=>{e.preventDefault(); $('drop').classList.add('over');});
@@ -823,6 +1436,8 @@ $('btnSaveRules').addEventListener('click', ()=>{
 $('btnResetRules').addEventListener('click', ()=>{
   RULES = JSON.parse(JSON.stringify(DEFAULT_RULES));
   saveRules(); rulesToInputs();
+  SITE = Object.assign({}, DEFAULT_SITE); saveSite(); applySite();
+  if ($('siteNameInput')){ $('siteNameInput').value = SITE.name; $('siteMailInput').value = SITE.mail; }
   const {spends} = analyze();
   if (spends.length){
     $('viewFilter').value = 'all';
@@ -835,6 +1450,58 @@ $('btnResetRules').addEventListener('click', ()=>{
 loadRules();
 rulesToInputs();
 $('verTag').textContent = 'v' + APP_VERSION;
+
+/* ---------- v2: 初始化站点信息 / 知识库 / 笔记 / 主题 / 动效 ---------- */
+loadSite();
+applySite();
+if ($('siteNameInput')) $('siteNameInput').value = SITE.name;
+if ($('siteMailInput')) $('siteMailInput').value = SITE.mail;
+renderKB();
+renderPrompts();
+loadNotes();
+applyChartTheme();
+
+/* 消费笔记: 输入自动保存 + 提示词插入 + 导出/清空 */
+let noteTimer = null;
+$('notesArea').addEventListener('input', ()=>{
+  clearTimeout(noteTimer);
+  noteTimer = setTimeout(()=>saveNotes(true), 800);
+});
+$('notePrompts').addEventListener('click', e=>{
+  const chip = e.target && e.target.closest ? e.target.closest('.chip') : null;
+  if (!chip) return;
+  const ta = $('notesArea');
+  const t = chip.getAttribute('data-t');
+  ta.value = (ta.value ? ta.value.replace(/\s*$/,'') + '\n' : '') + '· ' + t.replace(/____/g, '____');
+  ta.focus();
+  saveNotes(true);
+});
+$('btnNoteSave').addEventListener('click', ()=>saveNotes(false));
+$('btnNoteExport').addEventListener('click', exportNotes);
+$('btnNoteClear').addEventListener('click', ()=>{
+  if (!confirm('确定清空笔记内容吗?(仅本机, 不可恢复)')) return;
+  $('notesArea').value = '';
+  saveNotes(true);
+  $('noteStatus').textContent = '已清空';
+  setTimeout(()=>{ $('noteStatus').textContent=''; }, 2000);
+});
+
+/* 滚动淡入动效 */
+if (typeof IntersectionObserver !== 'undefined'){
+  const io = new IntersectionObserver(entries=>{
+    entries.forEach(en=>{ if (en.isIntersecting){ en.target.classList.add('in'); io.unobserve(en.target); } });
+  }, {threshold:.12, rootMargin:'0px 0px -40px 0px'});
+  document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+} else {
+  document.querySelectorAll('.reveal').forEach(el=>el.classList.add('in'));
+}
+/* 跟随系统深浅色切换时, 更新图表主题并重绘 */
+if (window.matchMedia){
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  const onTheme = ()=>{ applyChartTheme(); if (allRows.length) renderAll(); };
+  if (mq.addEventListener) mq.addEventListener('change', onTheme);
+  else if (mq.addListener) mq.addListener(onTheme);
+}
 
 /* 分享长图: 生成 → 弹窗预览(手机可长按保存) → 可选下载 */
 let lastReportURL = '';
@@ -887,8 +1554,13 @@ if (typeof location !== 'undefined' && /[?&]demo=1/.test(location.search)){
       const url = buildReportImage();
       reportInfo = url.startsWith('data:image/png') ? 'ok(' + url.length + 'B)' : 'bad';
     } catch(e){ reportInfo = 'ERR:' + (e && e.message || e); }
+    const q = s => { try { return document.querySelectorAll(s).length; } catch(e){ return -1; } };
     document.title = 'E2E v' + APP_VERSION + ' ' + JSON.stringify({
       来源: useZip ? 'zip' : 'demo',
+      品牌: (document.getElementById('brandName')||{}).textContent || '',
+      建议条数: q('#adviceGrid .advice'),
+      知识库条数: q('#kbList details'),
+      笔记框: document.getElementById('notesArea') ? 'ok' : 'missing',
       真实消费: r2(st.spendTotal),
       退款: r2(spends.reduce((s,o)=>s+o.refund,0)),
       报销剔除: r2(st.reimburseSum),

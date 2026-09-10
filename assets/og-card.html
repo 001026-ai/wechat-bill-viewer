@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>分享卡片设计稿</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:1200px;height:630px;overflow:hidden}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","PingFang SC","Microsoft YaHei",sans-serif;
+    background:
+      radial-gradient(90% 120% at 88% -10%, rgba(41,151,255,.28), transparent 62%),
+      radial-gradient(80% 110% at 6% 108%, rgba(175,82,222,.22), transparent 60%),
+      #ffffff;
+    color:#1d1d1f; display:flex; align-items:center; padding:0 84px; position:relative;
+  }
+  .left{flex:1;max-width:640px}
+  .brand{display:flex;align-items:center;gap:14px;margin-bottom:30px}
+  .mark{width:56px;height:56px;border-radius:16px;background:linear-gradient(150deg,#0071e3,#5ac8fa);display:flex;align-items:center;justify-content:center}
+  .mark svg{width:32px;height:32px}
+  .brand-name{font-size:28px;font-weight:650;letter-spacing:-.02em}
+  h1{font-size:70px;font-weight:700;letter-spacing:-.035em;line-height:1.06;margin-bottom:22px}
+  .grad{background:linear-gradient(96deg,#0071e3,#2997ff 55%,#af52de);-webkit-background-clip:text;background-clip:text;color:transparent}
+  p{font-size:25px;color:#6e6e73;line-height:1.5;letter-spacing:.005em}
+  .pills{display:flex;gap:12px;margin-top:38px;flex-wrap:wrap}
+  .pill{font-size:19px;color:#1d1d1f;border:1.5px solid rgba(0,0,0,.12);border-radius:980px;padding:11px 22px;background:rgba(255,255,255,.7)}
+  /* 右侧示意卡片 */
+  .right{width:380px;margin-left:40px}
+  .mock{background:#fff;border-radius:26px;padding:28px;box-shadow:0 24px 70px rgba(0,0,0,.13);border:1px solid rgba(0,0,0,.05)}
+  .mock .lab{font-size:15px;color:#6e6e73;margin-bottom:6px}
+  .mock .big{font-size:46px;font-weight:700;letter-spacing:-.03em}
+  .bars{margin-top:22px;display:grid;gap:13px}
+  .row{display:flex;align-items:center;gap:12px;font-size:15px;color:#3a3a3c}
+  .row .nm{width:62px;color:#6e6e73}
+  .track{flex:1;height:13px;border-radius:7px;background:#eef1f6;overflow:hidden}
+  .fill{height:100%;border-radius:7px}
+</style>
+</head>
+<body>
+  <div class="left">
+    <div class="brand">
+      <div class="mark">
+        <svg viewBox="0 0 64 64" fill="none"><g stroke="white" stroke-width="6" stroke-linecap="round"><path d="M18 44V30"/><path d="M28 44V20"/><path d="M38 44V34"/><path d="M48 44V25"/></g></svg>
+      </div>
+      <div class="brand-name">账单小管家</div>
+    </div>
+    <h1>把微信账单<br>变成看得懂的<span class="grad">消费报告</span></h1>
+    <p>自动分类 · 退款核对 · AA 结算 · 消费建议</p>
+    <div class="pills">
+      <span class="pill">🔒 数据不上传</span>
+      <span class="pill">📊 一键出图</span>
+      <span class="pill">📖 理财启蒙</span>
+    </div>
+  </div>
+  <div class="right">
+    <div class="mock">
+      <div class="lab">真实消费总额</div>
+      <div class="big">¥2,318.60</div>
+      <div class="bars">
+        <div class="row"><span class="nm">餐饮</span><span class="track"><span class="fill" style="width:62%;background:#ff9f0a"></span></span></div>
+        <div class="row"><span class="nm">购物</span><span class="track"><span class="fill" style="width:44%;background:#0071e3"></span></span></div>
+        <div class="row"><span class="nm">交通</span><span class="track"><span class="fill" style="width:30%;background:#30b0c7"></span></span></div>
+        <div class="row"><span class="nm">娱乐</span><span class="track"><span class="fill" style="width:18%;background:#af52de"></span></span></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
