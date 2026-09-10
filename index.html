@@ -492,13 +492,159 @@
     animation:none!important; transition:none!important;
   }
   .no-anim .reveal{opacity:1!important; transform:none!important}
+
+  /* 低配 / 省电模式: index.html?lite=1
+     降低模糊与合成开销, 低端手机更流畅; 也用于确定性截图验收 */
+  .lite .aurora i b{filter:blur(34px)}
+  .lite .grain{display:none}
+  .lite .cursor-glow{display:none}
+  .lite .panel,.lite .card,.lite .advice,.lite .notes-card,.lite .drop,
+  .lite .rule-card,.lite .kb-card,.lite .about-card,.lite .btn,
+  .lite .site-nav,.lite .chip,.lite .kb-chip{
+    backdrop-filter:none!important; -webkit-backdrop-filter:none!important;
+  }
+  .lite .panel,.lite .card,.lite .advice,.lite .notes-card,.lite .drop,
+  .lite .rule-card,.lite .kb-card,.lite .about-card{background:var(--glass-strong)}
+  .lite .site-nav{background:var(--aurora-base)}
+  .lite .kb-card:hover,.lite .about-card:hover,.lite .advice:hover{transform:none}
+
+  /* ===================================================================
+     v4 — 更通透的玻璃 + 冷色调极光 + 鼠标交互 + 知识库/关于重排
+     =================================================================== */
+  :root{
+    /* 透明度提高(浅色) */
+    --glass-bg:rgba(255,255,255,.34);
+    --glass-strong:rgba(255,255,255,.48);
+    --glass-card:rgba(255,255,255,.40);
+    --glass-border:rgba(255,255,255,.62);
+    --aurora-base:#eef4fb;          /* 冷调冷白底 */
+    --aurora-alpha:.62;
+    --grain-opacity:.26;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --glass-bg:rgba(120,180,255,.07);
+      --glass-strong:rgba(140,200,255,.12);
+      --glass-card:rgba(10,18,32,.44);
+      --glass-border:rgba(150,200,255,.16);
+      --aurora-base:#04070f;        /* 深冷蓝黑 */
+      --aurora-alpha:.78;
+      --grain-opacity:.20;
+    }
+  }
+  /* 玻璃更通透: 加大模糊半径, 保证文字仍然清楚 */
+  .panel,.card,.advice,.notes-card,.drop,.rule-card,.kb-card,.about-card{
+    backdrop-filter:blur(26px) saturate(170%);
+    -webkit-backdrop-filter:blur(26px) saturate(170%);
+  }
+  .btn{backdrop-filter:blur(18px) saturate(180%); -webkit-backdrop-filter:blur(18px) saturate(180%)}
+
+  /* 极光: i = 视差容器, b = 实际光斑(位置/颜色/时长由 JS 随机生成) */
+  .aurora i{position:absolute;display:block;will-change:transform;transition:transform .5s cubic-bezier(.2,.8,.35,1)}
+  .aurora i b{display:block;width:100%;height:100%;border-radius:50%;filter:blur(72px);will-change:transform;
+    animation:driftA 34s ease-in-out infinite}
+  .aurora i:nth-child(1){width:62vw;height:62vw;left:-12vw;top:-18vw}
+  .aurora i:nth-child(2){width:56vw;height:56vw;right:-14vw;top:-6vw}
+  .aurora i:nth-child(3){width:60vw;height:60vw;left:8vw;bottom:-26vw}
+  .aurora i:nth-child(4){width:44vw;height:44vw;right:-6vw;bottom:-18vw}
+  .aurora i b{background:radial-gradient(circle at 50% 50%, rgba(120,190,255,.9), transparent 68%)}
+  @keyframes driftA{0%,100%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(3vw,-3vw,0) scale(1.12)}}
+  /* 光标柔光 */
+  .cursor-glow{
+    position:fixed;left:0;top:0;width:520px;height:520px;margin:-260px 0 0 -260px;border-radius:50%;
+    pointer-events:none;z-index:-1;opacity:0;transition:opacity .6s;
+    background:radial-gradient(circle, rgba(120,200,255,.34), rgba(120,200,255,.10) 42%, transparent 70%);
+  }
+  @media (prefers-color-scheme: dark){
+    .cursor-glow{background:radial-gradient(circle, rgba(90,190,255,.26), rgba(90,190,255,.08) 42%, transparent 70%)}
+  }
+  .cursor-glow.on{opacity:1}
+  @media (prefers-reduced-motion: reduce){.cursor-glow{display:none}}
+
+  /* ---------- 理财启蒙知识库: 卡片网格 ---------- */
+  .kb-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:860px){.kb-grid{grid-template-columns:1fr}}
+  .kb-card{
+    background:var(--glass-card);border:1px solid var(--glass-border);border-radius:var(--r-lg);
+    padding:22px 22px 18px;box-shadow:var(--glass-shadow), var(--glass-inset);
+    display:flex;flex-direction:column;gap:14px;
+    transition:transform .28s cubic-bezier(.2,.7,.3,1), box-shadow .28s;
+  }
+  .kb-card:hover{transform:translateY(-3px);box-shadow:0 18px 46px rgba(20,50,110,.16), var(--glass-inset)}
+  .kb-top{display:flex;align-items:center;gap:13px}
+  .kb-badge{
+    width:44px;height:44px;flex:0 0 44px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:21px;
+    background:linear-gradient(150deg, rgba(80,170,255,.30), rgba(120,230,220,.26));
+    border:1px solid var(--glass-border);
+  }
+  .kb-book{font-size:17px;font-weight:650;letter-spacing:-.015em;line-height:1.3}
+  .kb-author{font-size:12.5px;color:var(--sub);margin-top:3px}
+  .kb-chips{display:flex;flex-wrap:wrap;gap:7px}
+  .kb-chip{
+    font-family:inherit;font-size:12.5px;line-height:1.5;cursor:pointer;
+    border:1px solid var(--glass-border);border-radius:999px;padding:6px 13px;
+    background:var(--glass-bg);color:var(--sub);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+    transition:transform .18s, background .2s, color .2s, border-color .2s;
+  }
+  .kb-chip:hover{transform:translateY(-1px);background:var(--glass-strong);color:var(--ink);border-color:rgba(90,170,255,.5)}
+  .kb-chip.active{color:#fff;background:linear-gradient(150deg, rgba(0,113,227,.92), rgba(60,170,240,.85));border-color:transparent}
+  .kb-toggle{
+    align-self:flex-start;font-family:inherit;font-size:13px;color:var(--brand);background:none;border:none;
+    cursor:pointer;padding:2px 0;display:inline-flex;align-items:center;gap:6px;
+  }
+  .kb-toggle .caret{transition:transform .35s cubic-bezier(.2,.7,.3,1);display:inline-block}
+  .kb-card.open .kb-toggle .caret{transform:rotate(180deg)}
+  /* 展开动画: grid-template-rows 0fr→1fr, 平滑且不需要算高度 */
+  .kb-detail{display:grid;grid-template-rows:0fr;transition:grid-template-rows .5s cubic-bezier(.2,.7,.3,1)}
+  .kb-card.open .kb-detail{grid-template-rows:1fr}
+  .kb-detail-in{overflow:hidden}
+  .kb-item{
+    display:flex;gap:12px;padding:14px 0;border-top:1px solid var(--glass-border);
+    text-align:left;transition:background .3s;
+  }
+  .kb-item:first-child{border-top:none}
+  .kb-num{
+    flex:0 0 24px;width:24px;height:24px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+    font-size:12px;font-weight:700;color:#fff;background:linear-gradient(150deg,#3f8ae0,#59c7d8);
+  }
+  .kb-item h4{font-size:14.5px;font-weight:650;margin-bottom:5px;letter-spacing:-.01em}
+  .kb-item p{font-size:13.5px;color:var(--sub);line-height:1.85;max-width:56ch}
+  .kb-item.flash{animation:flash .9s ease}
+  @keyframes flash{0%{background:rgba(90,170,255,.22)}100%{background:transparent}}
+
+  /* ---------- 关于: 卡片网格(替代原来的折叠条) ---------- */
+  .about-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:860px){.about-grid{grid-template-columns:1fr}}
+  .about-card{
+    background:var(--glass-card);border:1px solid var(--glass-border);border-radius:var(--r-lg);
+    padding:24px;box-shadow:var(--glass-shadow), var(--glass-inset);
+    transition:transform .28s cubic-bezier(.2,.7,.3,1), box-shadow .28s;
+  }
+  .about-card:hover{transform:translateY(-3px);box-shadow:0 18px 46px rgba(20,50,110,.16), var(--glass-inset)}
+  .about-card .ai{
+    width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:14px;
+    background:linear-gradient(150deg, rgba(80,170,255,.28), rgba(120,230,220,.24));
+    border:1px solid var(--glass-border);
+    transition:transform .35s cubic-bezier(.2,.7,.3,1);
+  }
+  .about-card:hover .ai{transform:translateY(-2px) scale(1.06)}
+  .about-card h3{font-size:16.5px;font-weight:650;letter-spacing:-.012em;margin-bottom:9px}
+  .about-card p{font-size:14px;color:var(--sub);line-height:1.85;max-width:58ch}
+  .about-card p + p{margin-top:9px}
+  .about-card b{color:var(--ink);font-weight:600}
+  .about-card.wide{grid-column:1/-1}
+  /* 关键词高亮: 让读者一眼抓到重点 */
+  .hl-key{color:var(--ink);font-weight:600;background:linear-gradient(transparent 62%, rgba(90,180,255,.35) 62%);padding:0 1px}
+  /* 错峰入场 */
+  .stagger > *{transition-delay:calc(var(--i, 0) * 70ms)}
 </style>
 </head>
 <body>
 
-<!-- 质感背景: 极光光晕 + 颗粒(纯 CSS/SVG, 无外部图片, 不增加请求) -->
-<div class="aurora" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-<div class="grain" aria-hidden="true"></div>
+<!-- 质感背景: 极光光晕(每次进入随机生成, 跟随鼠标视差) + 光标柔光 + 颗粒 -->
+<div class="aurora" id="aurora" aria-hidden="true"><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i></div>
+<div class="cursor-glow" id="cursorGlow" aria-hidden="true"></div>
+<div class="grain" id="grain" aria-hidden="true"></div>
 
 <!-- ===================== 顶部导航 ===================== -->
 <nav class="site-nav">
@@ -753,9 +899,9 @@
 
     <div class="section-head reveal" style="margin-top:56px">
       <h2 style="font-size:clamp(22px,3vw,30px)">理财启蒙知识库</h2>
-      <p>这些概念不是"省钱技巧",而是看待金钱的方式。点开看看哪一条戳中你。</p>
+      <p>这些概念不是"省钱技巧",而是看待金钱的方式。点标签展开解读,先挑一条戳中你的。</p>
     </div>
-    <div class="about-list" id="kbList"></div>
+    <div class="kb-grid stagger" id="kbList"></div>
   </div>
 </section>
 
@@ -787,45 +933,42 @@
       <h2>关于这个小工具</h2>
       <p>它只做一件事:把你自己的账单,算清楚给你看。</p>
     </div>
-    <div class="about-list reveal">
-      <details class="acc" open>
-        <summary>它是什么</summary>
-        <div class="acc-body">
-          一个纯前端的微信账单分析工具。上传账单后,自动完成消费分类、退款净额核对、报销剔除、AA 结算,
-          并给出图表、消费建议与记账笔记。所有计算都在你的浏览器里完成。
-        </div>
-      </details>
-      <details class="acc">
-        <summary>隐私:数据去哪了?</summary>
-        <div class="acc-body">
-          <b>哪里都没去。</b>账单文件由浏览器本地读取和解析,不上传到任何服务器,我们不收集、不存储、不传输你的任何账单数据。
-          规则与笔记保存在你本机的浏览器存储(localStorage)里,清除浏览器数据即消失,换设备也不会同步。
-        </div>
-      </details>
-      <details class="acc">
-        <summary>免责声明</summary>
-        <div class="acc-body">
-          本工具与腾讯公司及微信官方<b>无任何关联</b>,也非其授权产品;"微信"仅为说明账单来源的客观描述。
-          工具内的消费建议与理财观念属于<b>一般性科普信息,不构成投资、税务或法律建议</b>,
-          请结合自身情况独立判断,必要时咨询专业人士。因使用本工具产生的任何决策与后果,由使用者自行承担。
-        </div>
-      </details>
-      <details class="acc">
-        <summary>使用条款 / 商用说明</summary>
-        <div class="acc-body">
-          个人可免费使用本工具分析自己的账单。<b>如需商业用途</b>(例如嵌入你的产品、对外提供服务、商业培训等),
-          请先取得授权并保留出处署名。工具内引用的书名、作者仅用于说明观念来源,相关内容为原创转述,
-          不含原书文字段落;书名与观点的著作权归原作者及出版方所有。
-        </div>
-      </details>
-      <details class="acc">
-        <summary>怎么改规则、怎么反馈</summary>
-        <div class="acc-body">
-          分类规则、报销关键词、商户固定分类、AA 分组都可以在「账单分析」里的
-          <code>⚙️ 规则设置</code> 面板直接修改,保存后立即生效,不需要改代码。
-          想反馈问题或建议,可通过下方邮箱联系。
-        </div>
-      </details>
+    <div class="about-grid stagger">
+      <article class="about-card reveal" style="--i:0">
+        <div class="ai">🧭</div>
+        <h3>它是什么</h3>
+        <p>一个纯前端的微信账单分析工具。上传账单后,自动完成<span class="hl-key">消费分类</span>、<span class="hl-key">退款净额核对</span>、<span class="hl-key">报销剔除</span>与 <span class="hl-key">AA 结算</span>,并给出图表、消费建议、健康分与记账笔记。</p>
+        <p>所有计算都在你的浏览器里完成,不需要注册,也没有服务器。</p>
+      </article>
+
+      <article class="about-card reveal" style="--i:1">
+        <div class="ai">🔒</div>
+        <h3>隐私:数据去哪了?</h3>
+        <p><b>哪里都没去。</b>账单文件由浏览器<span class="hl-key">本地读取和解析</span>,不上传到任何服务器;我们不收集、不存储、不传输你的任何账单数据。</p>
+        <p>规则、预算与笔记保存在<span class="hl-key">本机浏览器存储</span>里,清除浏览器数据即消失,换设备也不会同步。</p>
+      </article>
+
+      <article class="about-card reveal" style="--i:2">
+        <div class="ai">⚠️</div>
+        <h3>免责声明</h3>
+        <p>本工具与腾讯公司及微信官方<b>无任何关联</b>,也非其授权产品;"微信"仅为说明账单来源的客观描述。</p>
+        <p>页面内的消费建议与理财观念属于<span class="hl-key">一般性科普信息,不构成投资、税务或法律建议</span>。请结合自身情况独立判断,必要时咨询专业人士;因使用本工具产生的任何决策与后果,由使用者自行承担。</p>
+      </article>
+
+      <article class="about-card reveal" style="--i:3">
+        <div class="ai">📄</div>
+        <h3>使用条款 / 商用说明</h3>
+        <p>个人可免费使用本工具分析自己的账单。<span class="hl-key">如需商业用途</span>(例如嵌入你的产品、对外提供服务、商业培训等),请先取得授权并保留出处署名。</p>
+        <p>知识库内容为<span class="hl-key">原创转述</span>,不含原书文字段落;书名与观点的著作权归原作者及出版方所有。</p>
+      </article>
+
+      <article class="about-card wide reveal" style="--i:4">
+        <div class="ai">🛠️</div>
+        <h3>怎么改规则、怎么反馈</h3>
+        <p>分类规则、报销关键词、商户固定分类、AA 分组、网站名称与联系邮箱,都可以在「账单分析」里的
+          <code>⚙️ 规则设置</code> 面板直接修改 —— 每张卡片下方会<b>实时预览命中效果</b>,保存后立即生效,不需要改代码。</p>
+        <p>想反馈问题或合作,可通过页脚的邮箱联系。</p>
+      </article>
     </div>
   </div>
 </section>
@@ -880,7 +1023,7 @@
  * ========================================================= */
 
 /* 版本号: 改动本文件后请同步修改, 页面底部会显示, 便于确认线上是不是最新版 */
-const APP_VERSION = '3.0';
+const APP_VERSION = '4.0';
 
 /* ---------------- 规则区(默认值; 页面上也可直接改, 会记在浏览器里) ---------------- */
 const DEFAULT_RULES = {
@@ -1540,15 +1683,62 @@ const KB = [
   ]}
 ];
 
+const KB_ICONS = ['📘','📗','📙','📕','📓','📔','🧠'];
 function renderKB(){
   const el = $('kbList'); if (!el) return;
-  el.innerHTML = KB.map(group => `
-    <details class="acc">
-      <summary>${group.book} · ${group.author}</summary>
-      <div class="acc-body">
-        ${group.items.map(it=>`<p style="margin-bottom:12px"><b style="color:var(--ink)">${it.t}</b><br>${it.d}</p>`).join('')}
+  el.innerHTML = KB.map((group, gi) => `
+    <article class="kb-card reveal" style="--i:${gi}" data-book="${gi}">
+      <div class="kb-top">
+        <span class="kb-badge">${KB_ICONS[gi % KB_ICONS.length]}</span>
+        <div>
+          <h3 class="kb-book">${group.book}</h3>
+          <div class="kb-author">${group.author}</div>
+        </div>
       </div>
-    </details>`).join('');
+      <div class="kb-chips">
+        ${group.items.map((it, ii) =>
+          `<button class="kb-chip" type="button" data-book="${gi}" data-item="${ii}">${it.t}</button>`).join('')}
+      </div>
+      <button class="kb-toggle" type="button" data-book="${gi}">
+        <span class="kb-tg-text">展开解读</span><span class="caret">▾</span>
+      </button>
+      <div class="kb-detail">
+        <div class="kb-detail-in">
+          ${group.items.map((it, ii) => `
+            <div class="kb-item" data-book="${gi}" data-item="${ii}">
+              <span class="kb-num">${ii+1}</span>
+              <div>
+                <h4>${it.t}</h4>
+                <p>${it.d}</p>
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>
+    </article>`).join('');
+}
+/** 展开某本书的解读; 若指定 item 则高亮对应观念 */
+function kbOpen(gi, ii){
+  const card = document.querySelector('.kb-card[data-book="' + gi + '"]');
+  if (!card) return;
+  const isOpen = card.classList.contains('open');
+  if (!isOpen){
+    card.classList.add('open');
+    const t = card.querySelector('.kb-tg-text'); if (t) t.textContent = '收起解读';
+  }
+  if (typeof ii === 'number'){
+    // 高亮 + 滚动到该条
+    const items = card.querySelectorAll('.kb-item');
+    for (let k=0;k<items.length;k++) items[k].classList.remove('flash');
+    const target = card.querySelector('.kb-item[data-item="' + ii + '"]');
+    if (target){
+      void target.offsetWidth;             // 重启动画
+      target.classList.add('flash');
+      setTimeout(()=>{ if (typeof target.scrollIntoView === 'function') target.scrollIntoView({behavior:'smooth', block:'center'}); }, 120);
+    }
+  }
+  // 同步标签高亮状态
+  const chips = card.querySelectorAll('.kb-chip');
+  for (let k=0;k<chips.length;k++) chips[k].classList.toggle('active', k === ii);
 }
 
 /* =========================================================
@@ -2019,6 +2209,104 @@ function enableSpotlight(root){
   }
 }
 
+/* =========================================================
+ *  背景: 每次进入随机生成 + 冷色调 + 鼠标视差 + 光标柔光
+ * ========================================================= */
+const AURORA_STATE = { blobs: [], mx: 0, my: 0, tx: 0, ty: 0, raf: 0, enabled: false };
+
+function auroraIsDark(){
+  try { return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); } catch(e){ return false; }
+}
+function reduceMotion(){
+  try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch(e){ return false; }
+}
+/** 冷色调色相池(冰蓝 → 青 → 薄荷 → 靛), 每次随机挑 4 个不重复的 */
+function coolHues(n){
+  const pool = [196, 205, 214, 224, 232, 240, 248, 188, 178];   // 全部偏冷
+  const picked = [];
+  const copy = pool.slice();
+  while (picked.length < n && copy.length){
+    picked.push(copy.splice(Math.floor(Math.random()*copy.length), 1)[0]);
+  }
+  return picked;
+}
+function randomizeAurora(){
+  const root = $('aurora'); if (!root) return;
+  const dark = auroraIsDark();
+  const rnd = (a,b)=> a + Math.random()*(b-a);
+  const hues = coolHues(4);
+  const blobs = root.querySelectorAll('i');
+  AURORA_STATE.blobs = [];
+  for (let i=0;i<blobs.length;i++){
+    const wrap = blobs[i], inner = wrap.querySelector('b');
+    // 尺寸 / 位置 / 色相 全部随机
+    const size = rnd(46, 82);                       // vw
+    wrap.style.width = size + 'vw';
+    wrap.style.height = size + 'vw';
+    wrap.style.left = rnd(-22, 70) + 'vw';
+    wrap.style.top = rnd(-26, 68) + 'vw';
+    wrap.style.right = 'auto';
+    wrap.style.bottom = 'auto';
+    // 冷色 + 高透明
+    const hue = hues[i % hues.length] + rnd(-6, 6);
+    const sat = rnd(72, 96);
+    const light = dark ? rnd(46, 64) : rnd(58, 76);
+    const alpha = dark ? rnd(.44, .70) : rnd(.34, .58);
+    if (inner){
+      inner.style.background = `radial-gradient(circle at 50% 50%, hsl(${hue.toFixed(0)} ${sat.toFixed(0)}% ${light.toFixed(0)}% / ${alpha.toFixed(2)}), transparent 68%)`;
+      // 动效时长与相位随机, 每次观感不同
+      inner.style.animationDuration = rnd(26, 54).toFixed(1) + 's';
+      inner.style.animationDelay = (-rnd(0, 26)).toFixed(1) + 's';
+      const scale = rnd(1.05, 1.22).toFixed(2);
+      inner.style.setProperty('--drift-scale', scale);
+      inner.style.animationName = 'driftA';
+    }
+    // 视差深度(0.25 ~ 1.0)
+    AURORA_STATE.blobs.push({ el: wrap, depth: rnd(0.25, 1.0) });
+  }
+  // 颗粒种子随机 → 每次纹理都不同
+  const grain = $('grain');
+  if (grain){
+    const seed = Math.floor(Math.random()*9999);
+    grain.style.backgroundImage =
+      "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' seed='" + seed + "' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E\")";
+  }
+  document.documentElement.style.setProperty('--aurora-alpha', dark ? '.78' : '.62');
+}
+/** 鼠标视差 + 光标柔光 */
+function initAuroraPointer(){
+  if (reduceMotion()) return;
+  let fine = true;
+  try { fine = !window.matchMedia || window.matchMedia('(pointer: fine)').matches; } catch(e){}
+  if (!fine) return;                      // 触屏设备不启用(手机上是手指拖动, 会干扰滚动)
+  AURORA_STATE.enabled = true;
+  const glow = $('cursorGlow');
+  const onMove = e => {
+    const w = window.innerWidth || 1, h = window.innerHeight || 1;
+    AURORA_STATE.tx = (e.clientX / w - .5);
+    AURORA_STATE.ty = (e.clientY / h - .5);
+    if (glow){
+      glow.style.transform = 'translate3d(' + e.clientX + 'px,' + e.clientY + 'px,0)';
+      glow.classList.add('on');
+    }
+  };
+  window.addEventListener('mousemove', onMove, {passive:true});
+  window.addEventListener('mouseleave', ()=>{ if (glow) glow.classList.remove('on'); }, {passive:true});
+  const tick = () => {
+    const S = AURORA_STATE;
+    S.mx += (S.tx - S.mx) * 0.055;
+    S.my += (S.ty - S.my) * 0.055;
+    for (let i=0;i<S.blobs.length;i++){
+      const b = S.blobs[i];
+      const dx = -S.mx * 60 * b.depth;
+      const dy = -S.my * 60 * b.depth;
+      b.el.style.transform = 'translate3d(' + dx.toFixed(2) + 'px,' + dy.toFixed(2) + 'px,0)';
+    }
+    S.raf = requestAnimationFrame(tick);
+  };
+  if (typeof requestAnimationFrame === 'function') tick();
+}
+
 /* ---------------- 事件 ---------------- */
 /* 首屏按钮 */
 $('btnHeroPick').addEventListener('click', ()=>$('file').click());
@@ -2090,6 +2378,46 @@ renderKB();
 renderPrompts();
 loadNotes();
 applyChartTheme();
+
+/* ---------- v4: 背景随机化 + 鼠标交互 + 知识库交互 ---------- */
+randomizeAurora();
+initAuroraPointer();
+/* 系统深浅色切换时, 重新随机一套冷色极光(避免同一套看了太久) */
+if (window.matchMedia){
+  const mqA = window.matchMedia('(prefers-color-scheme: dark)');
+  const onScheme = ()=>{ randomizeAurora(); };
+  if (mqA.addEventListener) mqA.addEventListener('change', onScheme);
+  else if (mqA.addListener) mqA.addListener(onScheme);
+}
+/* 知识库: 点标签直接展开并高亮该观念; 点"展开解读"整体开合 */
+$('kbList').addEventListener('click', e=>{
+  const chip = e.target && e.target.closest ? e.target.closest('.kb-chip') : null;
+  if (chip){
+    kbOpen(+chip.getAttribute('data-book'), +chip.getAttribute('data-item'));
+    return;
+  }
+  const tg = e.target && e.target.closest ? e.target.closest('.kb-toggle') : null;
+  if (tg){
+    const card = tg.closest('.kb-card');
+    const open = card.classList.toggle('open');
+    const t = card.querySelector('.kb-tg-text');
+    if (t) t.textContent = open ? '收起解读' : '展开解读';
+    if (!open){
+      const chips = card.querySelectorAll('.kb-chip');
+      for (let k=0;k<chips.length;k++) chips[k].classList.remove('active');
+    }
+  }
+});
+/* 错峰入场: 给 stagger 子元素按顺序补 --i */
+(function(){
+  const groups = document.querySelectorAll('.stagger');
+  for (let g=0; g<groups.length; g++){
+    const kids = groups[g].children;
+    for (let k=0;k<kids.length;k++){
+      if (!kids[k].style.getPropertyValue('--i')) kids[k].style.setProperty('--i', k);
+    }
+  }
+})();
 
 /* 消费笔记: 输入自动保存 + 提示词插入 + 导出/清空 */
 let noteTimer = null;
@@ -2196,6 +2524,9 @@ $('btnExport').addEventListener('click', ()=>{
 if (typeof location !== 'undefined' && /[?&]noanim=1/.test(location.search)){
   document.documentElement.classList.add('no-anim');
 }
+if (typeof location !== 'undefined' && /[?&]lite=1/.test(location.search)){
+  document.documentElement.classList.add('lite');
+}
 if (typeof location !== 'undefined' && /[?&]demo=1/.test(location.search)){
   const r2 = x => Math.round(x*100)/100;
   const useZip = /[?&]zip=1/.test(location.search);
@@ -2230,6 +2561,15 @@ if (typeof location !== 'undefined' && /[?&]demo=1/.test(location.search)){
     } catch(e){}
     const hs = computeHealthScore();
     const chatA = answerQuestion('我哪类花得最多?');
+    // 知识库交互验证: 点第 1 本书的第 2 个观念 → 应展开并高亮
+    let kbInfo = 'n/a';
+    try {
+      kbOpen(0, 1);
+      const c0 = document.querySelector('.kb-card[data-book="0"]');
+      const it = document.querySelector('.kb-item[data-book="0"][data-item="1"]');
+      kbInfo = (c0 && c0.classList.contains('open') ? '展开ok' : '未展开')
+             + '/' + (it && it.classList.contains('flash') ? '高亮ok' : '未高亮');
+    } catch(e){ kbInfo = 'ERR:' + (e && e.message || e); }
     // 等数字滚动动画结束后再写标题, 这样读到的显示值与计算值一致
     setTimeout(()=>{
     document.title = 'E2E v' + APP_VERSION + ' ' + JSON.stringify({
@@ -2245,7 +2585,10 @@ if (typeof location !== 'undefined' && /[?&]demo=1/.test(location.search)){
       扣分项: hs.items.filter(i=>i.t==='minus').length,
       预算: txt('budgetPct'),
       建议条数: q('#adviceGrid .advice'),
-      知识库条数: q('#kbList details'),
+      知识库卡片: q('#kbList .kb-card'),
+      知识库标签: q('#kbList .kb-chip'),
+      知识库交互: kbInfo,
+      关于卡片: q('.about-card'),
       对话气泡: q('#chatBox .bubble'),
       问答按钮: q('#chatAsks .chip'),
       问答测试: chatA.slice(0, 40),
