@@ -637,13 +637,43 @@
   .hl-key{color:var(--ink);font-weight:600;background:linear-gradient(transparent 62%, rgba(90,180,255,.35) 62%);padding:0 1px}
   /* 错峰入场 */
   .stagger > *{transition-delay:calc(var(--i, 0) * 70ms)}
+
+  /* ===================================================================
+     v5 — 赛博粒子层(克制) + 更强的鼠标交互
+     =================================================================== */
+  .fx{
+    position:fixed;inset:0;z-index:-3;width:100%;height:100%;
+    pointer-events:none;opacity:.9;
+  }
+  .lite .fx{display:none}
+  @media (prefers-reduced-motion: reduce){.fx{display:none}}
+  /* 光标柔光: 外层柔光 + 内圈细环(跟随鼠标, 移动时轻微扩张) */
+  .cursor-glow{z-index:-2}
+  .cursor-glow i{
+    position:absolute;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;
+    border:1px solid rgba(120,220,255,.42);
+    transition:transform .35s cubic-bezier(.2,.7,.3,1), opacity .35s;
+  }
+  @media (prefers-color-scheme: dark){
+    .cursor-glow i{border-color:rgba(120,220,255,.5)}
+  }
+  /* 磁吸按钮: 轻微跟随鼠标(JS 写入 --mx/--my 位移) */
+  .btn{transform:translate3d(var(--bx,0px), var(--by,0px), 0)}
+  .btn:hover{transform:translate3d(var(--bx,0px), calc(var(--by,0px) - 2px), 0)}
+  .btn:active{transform:translate3d(var(--bx,0px), var(--by,0px), 0) scale(.97)}
+  /* 卡片 3D 微倾(JS 写 --rx/--ry) */
+  .tilt{transition:transform .3s cubic-bezier(.2,.7,.3,1), box-shadow .3s}
+  .kb-card.tilt:hover,.about-card.tilt:hover,.advice.tilt:hover{
+    transform:perspective(1000px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg)) translateY(-4px);
+  }
 </style>
 </head>
 <body>
 
-<!-- 质感背景: 极光光晕(每次进入随机生成, 跟随鼠标视差) + 光标柔光 + 颗粒 -->
+<!-- 质感背景: 极光光晕(每次随机, 跟随鼠标) + 赛博粒子层 + 光标柔光 + 颗粒 -->
 <div class="aurora" id="aurora" aria-hidden="true"><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i></div>
-<div class="cursor-glow" id="cursorGlow" aria-hidden="true"></div>
+<canvas class="fx" id="fx" aria-hidden="true"></canvas>
+<div class="cursor-glow" id="cursorGlow" aria-hidden="true"><i id="cursorRing"></i></div>
 <div class="grain" id="grain" aria-hidden="true"></div>
 
 <!-- ===================== 顶部导航 ===================== -->
@@ -1023,7 +1053,16 @@
  * ========================================================= */
 
 /* 版本号: 改动本文件后请同步修改, 页面底部会显示, 便于确认线上是不是最新版 */
-const APP_VERSION = '4.0';
+const APP_VERSION = '5.0';
+
+/* URL 开关必须在任何初始化之前生效(否则省电模式来不及关掉粒子层):
+     ?noanim=1 关闭全部动效   ?lite=1 低配/省电(关粒子、降模糊) */
+(function(){
+  if (typeof location === 'undefined' || !location.search) return;
+  const q = location.search;
+  if (/[?&]noanim=1/.test(q)) document.documentElement.classList.add('no-anim');
+  if (/[?&]lite=1/.test(q)) document.documentElement.classList.add('lite');
+})();
 
 /* ---------------- 规则区(默认值; 页面上也可直接改, 会记在浏览器里) ---------------- */
 const DEFAULT_RULES = {
@@ -2294,17 +2333,267 @@ function initAuroraPointer(){
   window.addEventListener('mouseleave', ()=>{ if (glow) glow.classList.remove('on'); }, {passive:true});
   const tick = () => {
     const S = AURORA_STATE;
-    S.mx += (S.tx - S.mx) * 0.055;
-    S.my += (S.ty - S.my) * 0.055;
-    for (let i=0;i<S.blobs.length;i++){
-      const b = S.blobs[i];
-      const dx = -S.mx * 60 * b.depth;
-      const dy = -S.my * 60 * b.depth;
-      b.el.style.transform = 'translate3d(' + dx.toFixed(2) + 'px,' + dy.toFixed(2) + 'px,0)';
+    if (!document.hidden){
+      S.mx += (S.tx - S.mx) * 0.055;
+      S.my += (S.ty - S.my) * 0.055;
+      for (let i=0;i<S.blobs.length;i++){
+        const b = S.blobs[i];
+        const dx = -S.mx * 60 * b.depth;
+        const dy = -S.my * 60 * b.depth;
+        b.el.style.transform = 'translate3d(' + dx.toFixed(2) + 'px,' + dy.toFixed(2) + 'px,0)';
+      }
     }
     S.raf = requestAnimationFrame(tick);
   };
   if (typeof requestAnimationFrame === 'function') tick();
+}
+
+/* =========================================================
+ *  赛博粒子层(克制版): 冷色微光粒子 + 星座连线 + 鼠标排斥与牵引
+ *  - 数量按视口面积自适应, 移动端减半并关闭连线
+ *  - lite / 减少动效 / 页面不可见 时自动停止, 省电
+ * ========================================================= */
+const FX = { cv:null, ctx:null, w:0, h:0, dpr:1, parts:[], ripples:[],
+             mx:-9999, my:-9999, px:-9999, py:-9999, speed:0, active:false,
+             running:false, fine:false, raf:0, last:0, frame:0 };
+
+function fxEnabled(){
+  if (document.documentElement.classList.contains('lite')) return false;
+  if (document.documentElement.classList.contains('no-anim')) return false;  // 用户要求关动效
+  if (reduceMotion()) return false;
+  const cv = $('fx');
+  return !!(cv && cv.getContext);
+}
+function fxResize(){
+  const cv = FX.cv; if (!cv) return;
+  const w = window.innerWidth || 800, h = window.innerHeight || 600;
+  FX.dpr = Math.min(window.devicePixelRatio || 1, 2);
+  FX.w = w; FX.h = h;
+  cv.width = Math.round(w * FX.dpr);
+  cv.height = Math.round(h * FX.dpr);
+  cv.style.width = w + 'px';
+  cv.style.height = h + 'px';
+  if (FX.ctx) FX.ctx.setTransform(FX.dpr, 0, 0, FX.dpr, 0, 0);
+  fxBuild();
+}
+function fxBuild(){
+  const area = FX.w * FX.h;
+  let n = Math.round(area / 16000);              // 密度
+  n = Math.max(34, Math.min(FX.fine ? 120 : 60, n));
+  const parts = [];
+  for (let i=0;i<n;i++){
+    // 冷色系: 青 → 蓝 → 少量靛紫点缀(赛博感但不张扬)
+    const r = Math.random();
+    const hue = r < .62 ? 186 + Math.random()*16      // 青
+              : r < .92 ? 205 + Math.random()*22      // 蓝
+              :            248 + Math.random()*14;    // 靛(少量)
+    parts.push({
+      x: Math.random()*FX.w,
+      y: Math.random()*FX.h,
+      vx: (Math.random()-.5) * .16,
+      vy: (Math.random()-.5) * .16,
+      r: .7 + Math.random()*1.5,
+      hue,
+      a: .22 + Math.random()*.4,
+      ph: Math.random()*Math.PI*2,
+      sp: .4 + Math.random()*.8
+    });
+  }
+  FX.parts = parts;
+  FX.ripples = [];
+}
+function fxLoop(now){
+  if (!FX.running) return;
+  FX.raf = requestAnimationFrame(fxLoop);
+  // 约 45fps 上限, 省电
+  if (now - FX.last < 22) return;
+  FX.last = now;
+  FX.frame++;
+  const ctx = FX.ctx, w = FX.w, h = FX.h, parts = FX.parts;
+  ctx.clearRect(0, 0, w, h);
+  ctx.globalCompositeOperation = 'lighter';
+
+  const attractR = FX.fine ? 200 : 0;     // 鼠标影响半径
+  for (let i=0;i<parts.length;i++){
+    const p = parts[i];
+    // 漂移 + 轻微摆动
+    p.ph += 0.008 * p.sp;
+    p.x += p.vx + Math.cos(p.ph) * 0.10;
+    p.y += p.vy + Math.sin(p.ph * 1.3) * 0.10;
+
+    // 鼠标交互: 靠近时被柔和推开(让鼠标"拨开"粒子)
+    if (FX.active && attractR){
+      const dx = p.x - FX.mx, dy = p.y - FX.my;
+      const d2 = dx*dx + dy*dy;
+      if (d2 < attractR*attractR && d2 > 0.01){
+        const d = Math.sqrt(d2);
+        const f = (1 - d/attractR) * 0.55;
+        p.vx += (dx/d) * f * 0.06;
+        p.vy += (dy/d) * f * 0.06;
+      }
+    }
+    // 阻尼 + 保底速度(避免被推飞)
+    p.vx *= 0.985; p.vy *= 0.985;
+    const sp2 = p.vx*p.vx + p.vy*p.vy;
+    if (sp2 > 1.6){ p.vx *= 0.9; p.vy *= 0.9; }
+    if (sp2 < 0.004){ p.vx += (Math.random()-.5)*0.02; p.vy += (Math.random()-.5)*0.02; }
+
+    // 环绕边界
+    if (p.x < -20) p.x = w + 20; else if (p.x > w + 20) p.x = -20;
+    if (p.y < -20) p.y = h + 20; else if (p.y > h + 20) p.y = -20;
+
+    // 画粒子(带一点辉光)
+    const glow = 1 + 0.35 * Math.sin(p.ph * 2);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r * glow, 0, Math.PI*2);
+    ctx.fillStyle = 'hsla(' + p.hue.toFixed(0) + ',95%,72%,' + (p.a * .85).toFixed(3) + ')';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r * 3.4 * glow, 0, Math.PI*2);
+    ctx.fillStyle = 'hsla(' + p.hue.toFixed(0) + ',95%,62%,' + (p.a * .07).toFixed(3) + ')';
+    ctx.fill();
+  }
+
+  // 星座连线(移动端关闭, 保持省电)
+  if (FX.fine){
+    const linkR = 118, linkR2 = linkR*linkR;
+    for (let i=0;i<parts.length;i++){
+      const a = parts[i];
+      for (let j=i+1;j<parts.length;j++){
+        const b = parts[j];
+        const dx = a.x-b.x, dy = a.y-b.y;
+        const d2 = dx*dx + dy*dy;
+        if (d2 < linkR2){
+          const al = (1 - Math.sqrt(d2)/linkR) * 0.10;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+          ctx.strokeStyle = 'hsla(196,90%,70%,' + al.toFixed(3) + ')';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      }
+      // 与鼠标之间的牵引线(交互感来源之一)
+      if (FX.active){
+        const dx = a.x - FX.mx, dy = a.y - FX.my;
+        const d2 = dx*dx + dy*dy, mr = 240, mr2 = mr*mr;
+        if (d2 < mr2){
+          const al = (1 - Math.sqrt(d2)/mr) * 0.34;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(FX.mx, FX.my);
+          ctx.strokeStyle = 'hsla(190,100%,74%,' + al.toFixed(3) + ')';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      }
+    }
+  }
+
+  // 点击涟漪
+  for (let k=FX.ripples.length-1;k>=0;k--){
+    const rp = FX.ripples[k];
+    rp.r += 3.4; rp.a *= 0.955;
+    if (rp.a < 0.01){ FX.ripples.splice(k,1); continue; }
+    ctx.beginPath();
+    ctx.arc(rp.x, rp.y, rp.r, 0, Math.PI*2);
+    ctx.strokeStyle = 'hsla(188,100%,72%,' + rp.a.toFixed(3) + ')';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+}
+function initFx(){
+  if (!fxEnabled()) return;
+  FX.cv = $('fx'); FX.ctx = FX.cv.getContext('2d');
+  if (!FX.ctx) return;
+  try { FX.fine = !window.matchMedia || window.matchMedia('(pointer: fine)').matches; } catch(e){ FX.fine = false; }
+  fxResize();
+  window.addEventListener('resize', fxResize, {passive:true});
+  document.addEventListener('visibilitychange', ()=>{
+    if (document.hidden){ FX.running = false; cancelAnimationFrame(FX.raf); }
+    else if (!FX.running){ FX.running = true; FX.last = 0; FX.raf = requestAnimationFrame(fxLoop); }
+  });
+  FX.running = true;
+  FX.raf = requestAnimationFrame(fxLoop);
+}
+
+/* ---------- 更强的鼠标交互: 光标环、按钮磁吸、卡片微倾、点击涟漪 ---------- */
+function initPointerFX(){
+  if (reduceMotion()) return;
+  if (document.documentElement.classList.contains('no-anim')) return;   // 关动效时不启用鼠标特效
+  let fine = true;
+  try { fine = !window.matchMedia || window.matchMedia('(pointer: fine)').matches; } catch(e){}
+  if (!fine) return;
+
+  const glow = $('cursorGlow'), ring = $('cursorRing');
+  let ringX = 0, ringY = 0, curX = 0, curY = 0, started = false;
+  let lastBtn = null, lastCard = null;
+
+  window.addEventListener('mousemove', e=>{
+    curX = e.clientX; curY = e.clientY;
+    if (!started){ ringX = curX; ringY = curY; started = true; }
+    // 粒子层感知鼠标
+    if (FX.parts && FX.parts.length){ FX.mx = curX; FX.my = curY; FX.active = true; }
+    // 柔光 + 内环(环有一点延迟跟随, 移动越快拉得越开)
+    if (glow){ glow.style.transform = 'translate3d(' + curX + 'px,' + curY + 'px,0)'; glow.classList.add('on'); }
+    // 磁吸按钮(只处理当前与上一个, 避免每次遍历全部元素)
+    const btn = e.target && e.target.closest ? e.target.closest('.btn') : null;
+    if (btn !== lastBtn){
+      if (lastBtn){ lastBtn.style.setProperty('--bx','0px'); lastBtn.style.setProperty('--by','0px'); }
+      lastBtn = btn;
+    }
+    if (btn){
+      const r = btn.getBoundingClientRect();
+      const dx = (curX - (r.left + r.width/2)) / r.width;
+      const dy = (curY - (r.top + r.height/2)) / r.height;
+      btn.style.setProperty('--bx', (dx * 4).toFixed(2) + 'px');
+      btn.style.setProperty('--by', (dy * 3).toFixed(2) + 'px');
+    }
+    // 卡片微倾
+    const card = e.target && e.target.closest ? e.target.closest('.kb-card,.about-card,.advice') : null;
+    if (card !== lastCard){
+      if (lastCard){ lastCard.style.setProperty('--rx','0deg'); lastCard.style.setProperty('--ry','0deg'); }
+      lastCard = card;
+    }
+    if (card){
+      const r = card.getBoundingClientRect();
+      const px = (curX - r.left) / r.width - .5;
+      const py = (curY - r.top) / r.height - .5;
+      card.classList.add('tilt');
+      card.style.setProperty('--rx', (-py * 3.6).toFixed(2) + 'deg');
+      card.style.setProperty('--ry', (px * 3.6).toFixed(2) + 'deg');
+    }
+  }, {passive:true});
+
+  window.addEventListener('mouseleave', ()=>{
+    if (glow) glow.classList.remove('on');
+    if (lastBtn){ lastBtn.style.setProperty('--bx','0px'); lastBtn.style.setProperty('--by','0px'); lastBtn = null; }
+    if (lastCard){ lastCard.style.setProperty('--rx','0deg'); lastCard.style.setProperty('--ry','0deg'); lastCard = null; }
+    FX.active = false; FX.mx = FX.my = -9999;
+  }, {passive:true});
+
+  // 内环延迟跟随 + 依据速度扩张(页面隐藏时暂停, 省电)
+  const ringLoop = ()=>{
+    if (!document.hidden){
+      ringX += (curX - ringX) * 0.16;
+      ringY += (curY - ringY) * 0.16;
+      const d = Math.hypot(curX - ringX, curY - ringY);
+      if (ring){
+        const s = 1 + Math.min(d / 90, 0.9);
+        ring.style.transform = 'translate3d(' + (ringX - curX) + 'px,' + (ringY - curY) + 'px,0) scale(' + s.toFixed(3) + ')';
+      }
+    }
+    requestAnimationFrame(ringLoop);
+  };
+  if (typeof requestAnimationFrame === 'function') ringLoop();
+
+  // 点击涟漪(背景粒子层上的轻微反馈)
+  window.addEventListener('click', e=>{
+    if (e.target && e.target.closest && e.target.closest('button,a,input,select,textarea,label,details,summary')) return;
+    if (!FX.ripples) return;
+    FX.ripples.push({x:e.clientX, y:e.clientY, r:10, a:.5});
+    if (FX.ripples.length > 6) FX.ripples.shift();
+  }, {passive:true});
 }
 
 /* ---------------- 事件 ---------------- */
@@ -2382,6 +2671,8 @@ applyChartTheme();
 /* ---------- v4: 背景随机化 + 鼠标交互 + 知识库交互 ---------- */
 randomizeAurora();
 initAuroraPointer();
+initFx();               // v5: 赛博粒子层
+initPointerFX();        // v5: 光标环 / 按钮磁吸 / 卡片微倾 / 点击涟漪
 /* 系统深浅色切换时, 重新随机一套冷色极光(避免同一套看了太久) */
 if (window.matchMedia){
   const mqA = window.matchMedia('(prefers-color-scheme: dark)');
@@ -2521,12 +2812,6 @@ $('btnExport').addEventListener('click', ()=>{
    便于用无头浏览器(或人工看标签页标题)确认前端逻辑在真实浏览器里正常。
    附加参数: &zip=1 改为抓取 tests/fixtures/sample_bill.zip 测试 zip 直传;
              &noanim=1 关闭所有动效(截图验收/无障碍用)。 */
-if (typeof location !== 'undefined' && /[?&]noanim=1/.test(location.search)){
-  document.documentElement.classList.add('no-anim');
-}
-if (typeof location !== 'undefined' && /[?&]lite=1/.test(location.search)){
-  document.documentElement.classList.add('lite');
-}
 if (typeof location !== 'undefined' && /[?&]demo=1/.test(location.search)){
   const r2 = x => Math.round(x*100)/100;
   const useZip = /[?&]zip=1/.test(location.search);
@@ -2570,6 +2855,21 @@ if (typeof location !== 'undefined' && /[?&]demo=1/.test(location.search)){
       kbInfo = (c0 && c0.classList.contains('open') ? '展开ok' : '未展开')
              + '/' + (it && it.classList.contains('flash') ? '高亮ok' : '未高亮');
     } catch(e){ kbInfo = 'ERR:' + (e && e.message || e); }
+    // 粒子层验证放在延迟回调里(等动画帧真正画过之后再采样)
+    const fxPaintOf = () => {
+      try {
+        const cvs = document.getElementById('fx');
+        if (!cvs || !cvs.getContext) return 'missing';
+        if (!cvs.width || cvs.width < 10) return 'off';
+        const g = cvs.getContext('2d');
+        const sw = Math.min(cvs.width, 400), sh = Math.min(cvs.height, 400);
+        const ox = Math.max(0, Math.round((cvs.width - sw)/2)), oy = Math.max(0, Math.round((cvs.height - sh)/2));
+        const d = g.getImageData(ox, oy, sw, sh).data;
+        let lit = 0;
+        for (let i=3;i<d.length;i+=4) if (d[i] > 6) lit++;
+        return lit > 0 ? ('已绘制 ' + lit + 'px') : '空白';
+      } catch(e){ return 'ERR:' + (e && e.message || e); }
+    };
     // 等数字滚动动画结束后再写标题, 这样读到的显示值与计算值一致
     setTimeout(()=>{
     document.title = 'E2E v' + APP_VERSION + ' ' + JSON.stringify({
@@ -2580,6 +2880,9 @@ if (typeof location !== 'undefined' && /[?&]demo=1/.test(location.search)){
       超宽元素: widest ? (widest + '@' + widestW) : '无',
       品牌: txt('brandName'),
       背景层: q('.aurora i') + '光晕+' + q('.grain') + '颗粒',
+      粒子数: (typeof FX !== 'undefined' && FX.parts) ? FX.parts.length : 'off',
+      粒子画布: (function(){ const c = document.getElementById('fx'); return c ? (c.width + 'x' + c.height) : 'missing'; })(),
+      粒子绘制: fxPaintOf(),
       健康分计算: hs.score,
       健康分显示: txt('scoreVal'),
       扣分项: hs.items.filter(i=>i.t==='minus').length,
